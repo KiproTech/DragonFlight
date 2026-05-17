@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dragon Flight — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;600;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--fire:#ff6b1a;--gold:#f5c518;--deep:#07050f;--panel:rgba(17,12,34,0.97);--border:rgba(245,197,24,0.18);--text:#f0e6d3;--muted:#6b6080;--green:#22d97a;--red:#ff4455;--blue:#4da6ff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--deep);
+  font-family:'Rajdhani',sans-serif;
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  /* FIXED: was overflow:hidden — now allows scrolling */
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:1.5rem 0;
+}
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(1px 1px at 7% 12%,rgba(255,255,255,.55) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 46% 8%,rgba(255,255,255,.65) 0%,transparent 100%),radial-gradient(1px 1px at 68% 35%,rgba(255,255,255,.42) 0%,transparent 100%),radial-gradient(1px 1px at 82% 70%,rgba(255,255,255,.38) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 92% 9%,rgba(255,255,255,.58) 0%,transparent 100%),radial-gradient(1px 1px at 22% 80%,rgba(255,255,255,.32) 0%,transparent 100%);pointer-events:none;z-index:0}
+.orb{position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0}
+.orb1{width:500px;height:500px;background:rgba(255,107,26,.055);top:-150px;left:-120px;animation:drift1 14s ease-in-out infinite}
+.orb2{width:400px;height:400px;background:rgba(245,197,24,.04);bottom:-100px;right:-100px;animation:drift2 17s ease-in-out infinite}
+@keyframes drift1{0%,100%{transform:translate(0,0)}50%{transform:translate(45px,35px)}}
+@keyframes drift2{0%,100%{transform:translate(0,0)}50%{transform:translate(-35px,-45px)}}
+.mountain{position:fixed;bottom:0;left:0;right:0;height:220px;background:linear-gradient(180deg,transparent,rgba(100,40,10,.1));clip-path:polygon(0 100%,0 65%,8% 32%,16% 58%,24% 18%,32% 48%,40% 8%,50% 42%,58% 10%,66% 40%,74% 14%,82% 44%,90% 22%,96% 50%,100% 32%,100% 100%);pointer-events:none;z-index:0}
+.dragon-bg{position:fixed;right:-60px;top:50%;transform:translateY(-55%);opacity:.035;z-index:0;font-size:26rem;line-height:1;pointer-events:none;animation:dfloat 9s ease-in-out infinite}
+@keyframes dfloat{0%,100%{transform:translateY(-55%)}50%{transform:translateY(-52%)}}
+.wrap{position:relative;z-index:10;width:100%;max-width:480px;padding:1.2rem}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:22px;padding:2.2rem 2rem;backdrop-filter:blur(20px);box-shadow:0 40px 80px rgba(0,0,0,.65),0 0 0 1px rgba(245,197,24,.04);animation:cardIn .5s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes cardIn{from{opacity:0;transform:translateY(28px) scale(.96)}to{opacity:1;transform:none}}
+.logo{text-align:center;margin-bottom:1.6rem}
+.logo-icon{font-size:2.6rem;display:block;animation:lfloat 3.5s ease-in-out infinite}
+@keyframes lfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.logo-title{font-family:'Cinzel Decorative',serif;font-size:1.5rem;font-weight:700;background:linear-gradient(135deg,var(--gold) 0%,var(--fire) 55%,var(--gold) 100%);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 3.5s linear infinite;letter-spacing:2px;display:block;margin-top:.3rem}
+@keyframes shimmer{0%{background-position:0%}100%{background-position:200%}}
+.logo-sub{font-size:.68rem;letter-spacing:4px;color:var(--muted);text-transform:uppercase;margin-top:3px;display:block}
+.tabs{display:flex;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:11px;padding:3px;margin-bottom:1.6rem;gap:3px}
+.tab{flex:1;padding:.5rem;text-align:center;font-family:'Cinzel',serif;font-size:.75rem;font-weight:600;letter-spacing:1.5px;color:var(--muted);cursor:pointer;border-radius:8px;transition:all .22s;border:none;background:transparent;text-transform:uppercase}
+.tab.active{background:rgba(245,197,24,.12);color:var(--gold);border:1px solid rgba(245,197,24,.22)}
+.form{display:none;flex-direction:column;gap:.85rem}
+.form.active{display:flex}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:.65rem;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;font-family:'Cinzel',serif}
+.field input,.field select{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.95rem;font-weight:500;padding:.58rem .85rem;outline:none;transition:all .2s;width:100%}
+.field input:focus,.field select:focus{border-color:rgba(245,197,24,.45);background:rgba(245,197,24,.03);box-shadow:0 0 0 3px rgba(245,197,24,.05)}
+.field input::placeholder{color:rgba(255,255,255,.18)}
+.field select option{background:#180f2e;color:var(--text)}
+.field input.err{border-color:rgba(255,68,85,.5)}
+.ferr{font-size:.68rem;color:var(--red);display:none;margin-top:1px}
+.ferr.show{display:block}
+.currency-card{background:rgba(34,217,122,.06);border:1px solid rgba(34,217,122,.2);border-radius:9px;padding:.6rem .85rem;display:none;align-items:center;gap:10px;animation:fadeUp .3s ease}
+.currency-card.show{display:flex}
+@keyframes fadeUp{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.cc-flag{font-size:1.3rem}
+.cc-info{flex:1}
+.cc-cur{font-size:.85rem;font-weight:600;color:var(--green)}
+.cc-min{font-size:.68rem;color:rgba(34,217,122,.7)}
+.pwd-bar-wrap{height:3px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden;display:none}
+.pwd-bar-wrap.show{display:block}
+.pwd-bar{height:100%;border-radius:3px;width:0;transition:all .3s}
+.age-warn{background:rgba(255,107,26,.07);border:1px solid rgba(255,107,26,.18);border-radius:9px;padding:.6rem .85rem;font-size:.76rem;color:rgba(245,197,24,.85);display:flex;align-items:center;gap:7px;line-height:1.45}
+.terms{display:flex;align-items:flex-start;gap:9px;font-size:.8rem;color:var(--muted);line-height:1.5}
+.terms input{margin-top:3px;accent-color:var(--gold);flex-shrink:0}
+.terms a{color:var(--gold);text-decoration:none}
+.sub-btn{width:100%;padding:.85rem;border-radius:11px;border:none;font-family:'Cinzel',serif;font-size:.9rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;background:linear-gradient(135deg,#c8720d,var(--fire));color:#fff;box-shadow:0 4px 22px rgba(255,107,26,.28);transition:all .22s;position:relative;overflow:hidden}
+.sub-btn:hover{transform:translateY(-1px);box-shadow:0 6px 30px rgba(255,107,26,.42)}
+.sub-btn:disabled{opacity:.65;cursor:not-allowed;transform:none}
+.divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.68rem;letter-spacing:2px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.07)}
+.demo-link{display:block;width:100%;padding:.7rem;border-radius:11px;border:1px solid rgba(77,166,255,.25);background:rgba(77,166,255,.06);color:var(--blue);font-family:'Cinzel',serif;font-size:.75rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .2s;text-decoration:none;text-align:center}
+.demo-link:hover{background:rgba(77,166,255,.12);border-color:rgba(77,166,255,.4)}
+.trust{display:flex;justify-content:center;gap:1.4rem;margin-top:1.4rem;padding-top:1.4rem;border-top:1px solid rgba(255,255,255,.05)}
+.trust-i{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.6rem;color:var(--muted);letter-spacing:1px;text-align:center}
+.trust-i span:first-child{font-size:1rem}
+.spinner{display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(100px);background:rgba(17,12,34,.97);border:1px solid var(--border);border-radius:11px;padding:.7rem 1.4rem;font-size:.85rem;font-weight:600;z-index:999;transition:transform .4s cubic-bezier(.34,1.56,.64,1);backdrop-filter:blur(10px);white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(34,217,122,.4);color:var(--green)}
+.toast.fail{border-color:rgba(255,68,85,.4);color:var(--red)}
+.forgot-link{display:block;width:100%;background:transparent;border:none;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:.78rem;cursor:pointer;text-align:center;padding:.35rem;transition:color .2s;margin-top:-.2rem}
+.forgot-link:hover{color:var(--gold)}
+.contact-strip{border-top:1px solid rgba(255,255,255,.06);margin-top:1.2rem;padding-top:1.1rem;text-align:center}
+.contact-title{font-family:'Cinzel',serif;font-size:.65rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:.7rem}
+.contact-links{display:flex;justify-content:center;gap:.65rem;margin-bottom:.6rem}
+.contact-btn{display:inline-flex;align-items:center;gap:6px;padding:.42rem .9rem;border-radius:50px;font-size:.75rem;font-weight:600;text-decoration:none;transition:all .2s;border:1px solid}
+.contact-btn.fb{background:rgba(24,119,242,.1);color:#4da6ff;border-color:rgba(24,119,242,.28)}
+.contact-btn.fb:hover{background:rgba(24,119,242,.22)}
+.contact-btn.wa{background:rgba(37,211,102,.1);color:#22d97a;border-color:rgba(37,211,102,.28)}
+.contact-btn.wa:hover{background:rgba(37,211,102,.22)}
+.contact-note{font-size:.65rem;color:var(--muted);letter-spacing:.5px}
+@media(max-width:480px){
+  .card{padding:1.6rem 1.2rem}
+  .row2{grid-template-columns:1fr}
+  .logo-title{font-size:1.2rem}
+  body{padding:1rem 0 2rem}
+  .contact-links{flex-direction:column;align-items:center}
+}
+</style>
+</head>
+<body>
+<div class="orb orb1"></div><div class="orb orb2"></div>
+<div class="mountain"></div>
+<div class="dragon-bg">🐉</div>
+
+<div class="wrap">
+<div class="card">
+  <div class="logo">
+    <span class="logo-icon">🐉</span>
+    <span class="logo-title">Dragon Flight</span>
+    <span class="logo-sub">Bet · Soar · Win</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('login')">Sign In</button>
+    <button class="tab" onclick="switchTab('register')">Register</button>
+  </div>
+
+  <!-- LOGIN -->
+  <form class="form active" id="loginForm" onsubmit="doLogin(event)">
+    <div class="field">
+      <label>Email Address</label>
+      <input type="email" id="lEmail" placeholder="your@email.com" required autocomplete="email">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="lPass" placeholder="••••••••" required autocomplete="current-password">
+      <span class="ferr" id="lErr">Invalid email or password</span>
+    </div>
+    <button type="submit" class="sub-btn" id="lBtn">Enter the Realm</button>
+    <button type="button" class="forgot-link" onclick="showForgot()">Forgot password?</button>
+  </form>
+
+  <!-- FORGOT PASSWORD -->
+  <form class="form" id="forgotForm" onsubmit="doForgot(event)">
+    <div style="text-align:center;margin-bottom:.4rem">
+      <span style="font-size:1.6rem">🔑</span>
+      <div style="font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold);margin-top:.3rem">Reset Password</div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;line-height:1.5">Enter your email and we'll send a reset link</div>
+    </div>
+    <div class="field">
+      <label>Email Address</label>
+      <input type="email" id="fEmail" placeholder="your@email.com" required autocomplete="email">
+      <span class="ferr" id="fErr"></span>
+    </div>
+    <button type="submit" class="sub-btn" id="fBtn">Send Reset Link 🔑</button>
+    <button type="button" class="forgot-link" onclick="showLogin()">← Back to Sign In</button>
+  </form>
+
+  <!-- SET NEW PASSWORD (after clicking email link) -->
+  <form class="form" id="newPassForm" onsubmit="doNewPassword(event)">
+    <div style="text-align:center;margin-bottom:.4rem">
+      <span style="font-size:1.6rem">🛡️</span>
+      <div style="font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold);margin-top:.3rem">Set New Password</div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;line-height:1.5">Choose a strong password for your account</div>
+    </div>
+    <div class="field">
+      <label>New Password</label>
+      <input type="password" id="npPass" placeholder="At least 8 characters" required minlength="8"
+        oninput="pwdStrength(this.value)" autocomplete="new-password">
+      <div class="pwd-bar-wrap show" id="npPwdWrap"><div class="pwd-bar" id="pwdBar2"></div></div>
+      <span class="ferr" id="npErr">Minimum 8 characters</span>
+    </div>
+    <div class="field">
+      <label>Confirm New Password</label>
+      <input type="password" id="npPass2" placeholder="Repeat password" required autocomplete="new-password">
+      <span class="ferr" id="npErr2">Passwords do not match</span>
+    </div>
+    <button type="submit" class="sub-btn" id="npBtn">Update Password 🛡️</button>
+  </form>
+
+  <!-- REGISTER -->
+  <form class="form" id="registerForm" onsubmit="doRegister(event)">
+    <div class="row2">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="rUser" placeholder="DragonRider" required minlength="3" maxlength="20">
+        <span class="ferr" id="rUserErr">3–20 characters</span>
+      </div>
+      <div class="field">
+        <label>Date of Birth</label>
+        <input type="date" id="rDob" required>
+        <span class="ferr" id="rDobErr">Must be 18+</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Email Address</label>
+      <input type="email" id="rEmail" placeholder="your@email.com" required autocomplete="email">
+      <span class="ferr" id="rEmailErr">Enter a valid email</span>
+    </div>
+    <div class="field">
+      <label>Country</label>
+      <select id="rCountry" required onchange="onCountry(this.value)">
+        <option value="">— Select your country —</option>
+        <optgroup label="East Africa">
+          <option value="KE">🇰🇪 Kenya</option>
+          <option value="UG">🇺🇬 Uganda</option>
+          <option value="TZ">🇹🇿 Tanzania</option>
+          <option value="RW">🇷🇼 Rwanda</option>
+          <option value="ET">🇪🇹 Ethiopia</option>
+        </optgroup>
+        <optgroup label="West Africa">
+          <option value="NG">🇳🇬 Nigeria</option>
+          <option value="GH">🇬🇭 Ghana</option>
+          <option value="SN">🇸🇳 Senegal</option>
+        </optgroup>
+        <optgroup label="Southern Africa">
+          <option value="ZA">🇿🇦 South Africa</option>
+          <option value="ZM">🇿🇲 Zambia</option>
+          <option value="ZW">🇿🇼 Zimbabwe</option>
+        </optgroup>
+        <optgroup label="Rest of World">
+          <option value="US">🇺🇸 United States</option>
+          <option value="GB">🇬🇧 United Kingdom</option>
+          <option value="EU">🇪🇺 Europe</option>
+          <option value="IN">🇮🇳 India</option>
+          <option value="OTHER">🌍 Other</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="currency-card" id="ccCard">
+      <span class="cc-flag" id="ccFlag">🇰🇪</span>
+      <div class="cc-info">
+        <div class="cc-cur" id="ccCur">Currency: KES</div>
+        <div class="cc-min" id="ccMin">Minimum deposit: KES 65 (≈ $0.50)</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="rPass" placeholder="At least 8 characters" required minlength="8" oninput="pwdStrength(this.value)" autocomplete="new-password">
+      <div class="pwd-bar-wrap show" id="pwdWrap"><div class="pwd-bar" id="pwdBar"></div></div>
+      <span class="ferr" id="rPassErr">Minimum 8 characters</span>
+    </div>
+    <div class="field">
+      <label>Confirm Password</label>
+      <input type="password" id="rPass2" placeholder="Repeat password" required autocomplete="new-password">
+      <span class="ferr" id="rPass2Err">Passwords do not match</span>
+    </div>
+    <div class="age-warn">⚠️ You must be <strong style="margin:0 3px">18+</strong> to register. Gambling may be subject to local laws.</div>
+    <div class="terms">
+      <input type="checkbox" id="termsChk" required>
+      <label for="termsChk">I confirm I am 18+ and agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>. I understand this involves real money wagering.</label>
+    </div>
+    <button type="submit" class="sub-btn" id="rBtn">Create My Account</button>
+  </form>
+
+  <div class="trust">
+    <div class="trust-i"><span>🔐</span><span>SSL Secured</span></div>
+    <div class="trust-i"><span>🎲</span><span>Provably Fair</span></div>
+    <div class="trust-i"><span>⚡</span><span>Instant Play</span></div>
+    <div class="trust-i"><span>🌍</span><span>Multi-Currency</span></div>
+    <div class="trust-i"><span>🛡️</span><span>18+ Only</span></div>
+  </div>
+
+  <!-- CONTACT & SOCIAL -->
+  <div class="contact-strip">
+    <div class="contact-title">Need Help?</div>
+    <div class="contact-links">
+      <a class="contact-btn fb" href="https://www.facebook.com/dragonflightbet" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.07C24 5.41 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.5c-1.5 0-1.96.93-1.96 1.89v2.26h3.32l-.53 3.5h-2.8V24C19.62 23.1 24 18.1 24 12.07z"/></svg>
+        Facebook
+      </a>
+      <a class="contact-btn wa" href="https://wa.me/254103062629" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.76-1.66-2.06-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.87 1.22 3.07.15.2 2.1 3.2 5.09 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35zM12.05 21.8h-.02a9.87 9.87 0 01-5.02-1.37l-.36-.21-3.74.98 1-3.64-.24-.38A9.86 9.86 0 012.1 12.03C2.1 6.55 6.57 2.1 12.06 2.1c2.65 0 5.14 1.03 7.01 2.9a9.86 9.86 0 012.9 7.02c0 5.49-4.47 9.94-9.92 9.78zm8.44-18.2A11.82 11.82 0 0012.05 0C5.43 0 .07 5.35.05 11.96a11.9 11.9 0 001.6 5.98L0 24l6.23-1.63a11.94 11.94 0 005.8 1.48h.01C18.62 23.85 24 18.5 24 11.88a11.82 11.82 0 00-3.51-8.28z"/></svg>
+        WhatsApp
+      </a>
+    </div>
+    <div class="contact-note">📧 support@dragonflight.bet · Available 24/7</div>
+  </div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+const sb = createClient('https://rwtezncoukiekayxuxje.supabase.co','sb_publishable_9JwkSoI9zm2oXu6tvZDRaw_2ebdCWtE');
+
+const COUNTRIES = {
+  KE:{cur:'KES',flag:'🇰🇪',min:65,sym:'KES'},UG:{cur:'UGX',flag:'🇺🇬',min:1850,sym:'UGX'},
+  TZ:{cur:'TZS',flag:'🇹🇿',min:1350,sym:'TZS'},RW:{cur:'RWF',flag:'🇷🇼',min:675,sym:'RWF'},
+  ET:{cur:'ETB',flag:'🇪🇹',min:29,sym:'ETB'},NG:{cur:'NGN',flag:'🇳🇬',min:800,sym:'₦'},
+  GH:{cur:'GHS',flag:'🇬🇭',min:7.5,sym:'GH₵'},SN:{cur:'XOF',flag:'🇸🇳',min:300,sym:'CFA'},
+  ZA:{cur:'ZAR',flag:'🇿🇦',min:9.5,sym:'R'},ZM:{cur:'ZMW',flag:'🇿🇲',min:13.5,sym:'ZMW'},
+  ZW:{cur:'USD',flag:'🇿🇼',min:0.5,sym:'$'},US:{cur:'USD',flag:'🇺🇸',min:0.5,sym:'$'},
+  GB:{cur:'GBP',flag:'🇬🇧',min:0.40,sym:'£'},EU:{cur:'EUR',flag:'🇪🇺',min:0.46,sym:'€'},
+  IN:{cur:'INR',flag:'🇮🇳',min:41.5,sym:'₹'},OTHER:{cur:'USD',flag:'🌍',min:0.5,sym:'$'},
+};
+
+window.switchTab = t => {
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',(i===0&&t==='login')||(i===1&&t==='register')));
+  document.getElementById('loginForm').classList.toggle('active',t==='login');
+  document.getElementById('registerForm').classList.toggle('active',t==='register');
+  document.getElementById('forgotForm').classList.remove('active');
+};
+
+window.showForgot = () => {
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('loginForm').classList.remove('active');
+  document.getElementById('registerForm').classList.remove('active');
+  document.getElementById('forgotForm').classList.add('active');
+};
+
+window.showLogin = () => {
+  switchTab('login');
+  document.querySelectorAll('.tab')[0].classList.add('active');
+};
+
+window.doForgot = async e => {
+  e.preventDefault();
+  const btn=document.getElementById('fBtn');
+  const errEl=document.getElementById('fErr');
+  const emailEl=document.getElementById('fEmail');
+  const email=emailEl.value.trim().toLowerCase();
+
+  // Reset error state
+  errEl.classList.remove('show');
+  emailEl.classList.remove('err');
+  btn.disabled=true;btn.textContent='Checking...';
+
+  // Step 1: Check email via RPC function (bypasses RLS, no 500 errors)
+  const {data:exists, error:rpcErr} = await sb.rpc('check_email_exists', { p_email: email });
+
+  if(rpcErr){
+    // RPC not set up yet — fall back to direct send
+    console.warn('check_email_exists RPC not found, sending anyway:', rpcErr.message);
+    btn.textContent='Sending...';
+  } else if(!exists){
+    emailEl.classList.add('err');
+    errEl.textContent='No account found with this email.';
+    errEl.classList.add('show');
+    showToast('Email not registered','fail');
+    btn.disabled=false;btn.textContent='Send Reset Link 🔑';
+    return;
+  } else {
+    btn.textContent='Sending...';
+  }
+
+  // Step 2: Send the reset link
+  const {error:resetErr} = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/auth.html'
+  });
+
+  if(resetErr){
+    showToast('Could not send reset email. Try again.','fail');
+    btn.disabled=false;btn.textContent='Send Reset Link 🔑';
+    return;
+  }
+
+  showToast('Reset link sent! Check your email 📧','ok');
+  btn.textContent='Email Sent ✓';
+  setTimeout(()=>{
+    btn.disabled=false;
+    btn.textContent='Send Reset Link 🔑';
+    showLogin();
+  }, 3500);
+};
+
+window.onCountry = code => {
+  const d = COUNTRIES[code]; if(!d){document.getElementById('ccCard').classList.remove('show');return;}
+  document.getElementById('ccFlag').textContent = d.flag;
+  document.getElementById('ccCur').textContent  = `Currency: ${d.cur} — ${d.sym}`;
+  document.getElementById('ccMin').textContent  = `Minimum deposit: ${d.sym}${d.min} (≈ $0.50 USD)`;
+  document.getElementById('ccCard').classList.add('show');
+  localStorage.setItem('df_country',code);
+  localStorage.setItem('df_currency',d.cur);
+  localStorage.setItem('df_min',d.min);
+  localStorage.setItem('df_sym',d.sym);
+};
+
+window.pwdStrength = v => {
+  let s=0;
+  if(v.length>=8)s++;if(/[A-Z]/.test(v))s++;if(/[0-9]/.test(v))s++;if(/[^A-Za-z0-9]/.test(v))s++;
+  const bars=['25%','50%','75%','100%'],cols=['#ff4455','#ff9f43','#f5c518','#22d97a'];
+  // Update both bars (register form + new password form)
+  ['pwdBar','pwdBar2'].forEach(id=>{
+    const bar=document.getElementById(id);
+    if(bar){bar.style.width=bars[s-1]||'0%';bar.style.background=cols[s-1]||'transparent';}
+  });
+};
+
+window.doLogin = async e => {
+  e.preventDefault();
+  const btn=document.getElementById('lBtn');
+  btn.disabled=true;btn.textContent='Signing in...';
+  const {error} = await sb.auth.signInWithPassword({
+    email: document.getElementById('lEmail').value.trim(),
+    password: document.getElementById('lPass').value,
+  });
+  if(error){
+    document.getElementById('lErr').classList.add('show');
+    showToast('Invalid email or password','fail');
+    btn.disabled=false;btn.textContent='Enter the Realm';
+  } else {
+    showToast('Welcome back! Loading...','ok');
+    setTimeout(()=>location.href='index.html',900);
+  }
+};
+
+window.doRegister = async e => {
+  e.preventDefault();
+  let ok=true;
+  const dob=new Date(document.getElementById('rDob').value);
+  const age=(Date.now()-dob)/(365.25*24*3600*1000);
+  if(age<18){document.getElementById('rDobErr').classList.add('show');document.getElementById('rDob').classList.add('err');ok=false;}
+  else{document.getElementById('rDobErr').classList.remove('show');document.getElementById('rDob').classList.remove('err');}
+  const p1=document.getElementById('rPass').value,p2=document.getElementById('rPass2').value;
+  if(p1!==p2){document.getElementById('rPass2Err').classList.add('show');document.getElementById('rPass2').classList.add('err');ok=false;}
+  else{document.getElementById('rPass2Err').classList.remove('show');document.getElementById('rPass2').classList.remove('err');}
+  const country=document.getElementById('rCountry').value;
+  if(!country){showToast('Please select your country','fail');ok=false;}
+  if(!ok)return;
+
+  const btn=document.getElementById('rBtn');
+  btn.disabled=true;btn.textContent='Creating account...';
+  const username=document.getElementById('rUser').value.trim();
+  const email=document.getElementById('rEmail').value.trim();
+  const currency=COUNTRIES[country]?.cur||'USD';
+
+  const {data,error} = await sb.auth.signUp({
+    email, password:p1,
+    options:{ data:{ username, country, currency, dob:document.getElementById('rDob').value } }
+  });
+
+  if(error){
+    showToast(error.message,'fail');
+    btn.disabled=false;btn.textContent='Create My Account';
+    return;
+  }
+
+  await sb.from('users').upsert({
+    id: data.user.id,
+    username, email, currency,
+    balance_real:0, balance_demo:10000,
+    vip_tier:'bronze',
+    referral_code: Math.random().toString(36).substring(2,10).toUpperCase(),
+  });
+
+  showToast('Account created! Welcome 🐉','ok');
+  setTimeout(()=>location.href='index.html',1200);
+};
+
+function showToast(msg,type){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className=`toast show ${type}`;
+  clearTimeout(t._t);t._t=setTimeout(()=>t.className='toast',3500);
+}
+
+// ── New password handler (after clicking email reset link) ────
+window.doNewPassword = async e => {
+  e.preventDefault();
+  const p1=document.getElementById('npPass').value;
+  const p2=document.getElementById('npPass2').value;
+  const errEl=document.getElementById('npErr2');
+
+  if(p1!==p2){
+    errEl.classList.add('show');
+    document.getElementById('npPass2').classList.add('err');
+    return;
+  }
+  errEl.classList.remove('show');
+  document.getElementById('npPass2').classList.remove('err');
+
+  const btn=document.getElementById('npBtn');
+  btn.disabled=true;btn.textContent='Updating...';
+
+  const {error} = await sb.auth.updateUser({ password: p1 });
+  if(error){
+    showToast(error.message||'Could not update password','fail');
+    btn.disabled=false;btn.textContent='Update Password 🛡️';
+    return;
+  }
+
+  showToast('Password updated! Signing you in...','ok');
+  btn.textContent='Done ✓';
+  // Sign out the recovery session, redirect to game
+  setTimeout(async()=>{
+    await sb.auth.signOut();
+    location.href='index.html';
+  },1800);
+};
+
+// ── Detect reset token in URL on page load ────────────────────
+(async()=>{
+  // Supabase puts #access_token=...&type=recovery in the URL hash
+  const hash = window.location.hash;
+  const params = new URLSearchParams(hash.replace('#',''));
+  const type = params.get('type');
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+
+  if(type === 'recovery' && accessToken){
+    // Set the session from the recovery token
+    const {error} = await sb.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken || ''
+    });
+    if(!error){
+      // Hide tabs, show new password form
+      document.querySelector('.tabs').style.display='none';
+      document.querySelectorAll('.form').forEach(f=>f.classList.remove('active'));
+      document.getElementById('newPassForm').classList.add('active');
+      // Clean the URL so token isn't visible
+      window.history.replaceState(null,'',window.location.pathname);
+      return;
+    }
+  }
+
+  // Normal page load — redirect if already logged in
+  const {data:{session}} = await sb.auth.getSession();
+  if(session) location.href='index.html';
+})();
+</script>
+</body>
+</html>

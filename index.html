@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dragon Flight — Bet · Soar · Win</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ══════════════ HEADER ══════════════ -->
+  <header id="hdr">
+    <div class="logo">🐉 Dragon Flight</div>
+    <div class="hm">
+      <div class="mode-tgl">
+        <button class="mdb don" id="demoBtn" onclick="setMode('demo')">Demo</button>
+        <button class="mdb"     id="realBtn" onclick="setMode('real')">Real</button>
+      </div>
+      <div class="vip-badge vb-br" id="vipBadge" onclick="openM('achModal')">🥉 Bronze</div>
+    </div>
+    <div class="hr">
+      <select class="csel" id="csel" onchange="setCurrency(this.value)">
+        <option value="KES">🇰🇪 KES</option>
+        <option value="UGX">🇺🇬 UGX</option>
+        <option value="NGN">🇳🇬 NGN</option>
+        <option value="GHS">🇬🇭 GHS</option>
+        <option value="ZAR">🇿🇦 ZAR</option>
+        <option value="USD">🇺🇸 USD</option>
+        <option value="GBP">🇬🇧 GBP</option>
+        <option value="EUR">🇪🇺 EUR</option>
+        <option value="INR">🇮🇳 INR</option>
+      </select>
+      <div class="balpill" onclick="openM('walletModal')">
+        <span class="bic">◈</span>
+        <span class="biv" id="balDisp">10,000.00</span>
+        <span style="color:var(--muted);font-size:.68rem">▼</span>
+      </div>
+      <button class="ibtn on" id="sndBtn" onclick="toggleSound()">🔊</button>
+      <button class="ibtn" title="Sign Out" onclick="signOut()">👤</button>
+    </div>
+  </header>
+
+  <!-- ══════════════ MAIN ══════════════ -->
+  <div id="main">
+
+    <!-- ── GAME COLUMN ── -->
+    <div id="gc">
+
+      <!-- Canvas wrapper -->
+      <div id="cw">
+        <canvas id="cv"></canvas>
+        <div class="dmwm show" id="dmwm"><span>DEMO</span></div>
+        <div class="sbadge sbw" id="sbadge">Waiting for round...</div>
+
+        <!-- Multiplier (hidden during wait) -->
+        <div class="mw" id="mwrap" style="display:none">
+          <div class="mv mv-s" id="mvEl">1.00x</div>
+          <div class="ml" id="mlEl">Cash out before the crash!</div>
+        </div>
+
+        <!-- Countdown ring -->
+        <div class="cdw show" id="cdwrap">
+          <svg class="cd-svg" viewBox="0 0 100 100">
+            <circle class="cd-bg"  cx="50" cy="50" r="45"/>
+            <circle class="cd-arc" cx="50" cy="50" r="45" id="cdArc"/>
+          </svg>
+          <div class="cd-num" id="cdNum">5</div>
+        </div>
+
+        <!-- Ghost players ticker -->
+        <div class="ghost-bar" id="ghostBar">
+          <div class="ghost-ticker" id="ghostTicker"></div>
+          <div class="ghost-count" id="ghostCount">0 players betting</div>
+        </div>
+      </div>
+
+      <!-- Provably fair bar -->
+      <div class="pfbar">
+        <span class="pfl">🔐 Provably Fair</span>
+        <span class="pfh" id="pfHash">Generating...</span>
+        <button class="pfb" onclick="openM('pfModal')">Verify</button>
+        <span class="pfr">Round #<span id="roundNum">1</span></span>
+      </div>
+
+      <!-- Crash history pills -->
+      <div class="hrow" id="hrow">
+        <span class="hlbl">History:</span>
+      </div>
+
+      <!-- ── DUAL BET PANELS ── -->
+      <div class="bpanels">
+
+        <!-- BET A -->
+        <div class="bpanel" id="panelA">
+          <div class="phdr">
+            <span class="plbl">⚡ Bet A</span>
+            <div class="ptog">
+              <button class="ptb on" id="ptbA-m" onclick="setPanelMode('A','manual')">Manual</button>
+              <button class="ptb"    id="ptbA-a" onclick="setPanelMode('A','auto')">Auto</button>
+            </div>
+          </div>
+          <div class="birow">
+            <input type="number" class="binp" id="amtA" value="10" min="1" step="1" placeholder="Amount">
+          </div>
+          <div class="qbs">
+            <button class="qb" onclick="qbet('A','add',5)">+5</button>
+            <button class="qb" onclick="qbet('A','add',10)">+10</button>
+            <button class="qb" onclick="qbet('A','add',50)">+50</button>
+            <button class="qb" onclick="qbet('A','half')">½</button>
+          </div>
+          <div class="arow">
+            <span class="albl">Auto cash-out at</span>
+            <div class="twrap">
+              <label class="tgl"><input type="checkbox" id="autoA"><span class="tgl-sl"></span></label>
+              <input type="number" class="ainp" id="acvA" value="2.00" min="1.01" step="0.1">
+            </div>
+          </div>
+          <!-- Auto mode extras -->
+          <div class="stoprow" id="stopA">
+            <div class="rrow">
+              <span class="rlbl">Auto rounds</span>
+              <input type="number" class="rinp" id="rndsA" value="10" min="1" max="999">
+            </div>
+            <div class="sfield">
+              <span style="flex:1">Stop if profit ≥</span>
+              <input type="number" class="sinp" id="swA" placeholder="0">
+            </div>
+            <div class="sfield">
+              <span style="flex:1">Stop if loss ≥</span>
+              <input type="number" class="sinp" id="slA" placeholder="0">
+            </div>
+          </div>
+          <div class="astrip" id="stripA">
+            <div class="asdot"></div>
+            <span id="stripTxtA">Auto — 0/10 rounds</span>
+          </div>
+          <button class="abtn btn-place" id="btnA" onclick="handleBtn('A')">Place Bet A</button>
+        </div>
+
+        <!-- BET B -->
+        <div class="bpanel" id="panelB">
+          <div class="phdr">
+            <span class="plbl">⚡ Bet B</span>
+            <div class="ptog">
+              <button class="ptb on" id="ptbB-m" onclick="setPanelMode('B','manual')">Manual</button>
+              <button class="ptb"    id="ptbB-a" onclick="setPanelMode('B','auto')">Auto</button>
+            </div>
+          </div>
+          <div class="birow">
+            <input type="number" class="binp" id="amtB" value="25" min="1" step="1" placeholder="Amount">
+          </div>
+          <div class="qbs">
+            <button class="qb" onclick="qbet('B','add',5)">+5</button>
+            <button class="qb" onclick="qbet('B','add',10)">+10</button>
+            <button class="qb" onclick="qbet('B','add',50)">+50</button>
+            <button class="qb" onclick="qbet('B','half')">½</button>
+          </div>
+          <div class="arow">
+            <span class="albl">Auto cash-out at</span>
+            <div class="twrap">
+              <label class="tgl"><input type="checkbox" id="autoB"><span class="tgl-sl"></span></label>
+              <input type="number" class="ainp" id="acvB" value="3.00" min="1.01" step="0.1">
+            </div>
+          </div>
+          <div class="stoprow" id="stopB">
+            <div class="rrow">
+              <span class="rlbl">Auto rounds</span>
+              <input type="number" class="rinp" id="rndsB" value="10" min="1" max="999">
+            </div>
+            <div class="sfield">
+              <span style="flex:1">Stop if profit ≥</span>
+              <input type="number" class="sinp" id="swB" placeholder="0">
+            </div>
+            <div class="sfield">
+              <span style="flex:1">Stop if loss ≥</span>
+              <input type="number" class="sinp" id="slB" placeholder="0">
+            </div>
+          </div>
+          <div class="astrip" id="stripB">
+            <div class="asdot"></div>
+            <span id="stripTxtB">Auto — 0/10 rounds</span>
+          </div>
+          <button class="abtn btn-place" id="btnB" onclick="handleBtn('B')">Place Bet B</button>
+        </div>
+
+      </div><!-- /bpanels -->
+    </div><!-- /gc -->
+
+    <!-- ── SIDEBAR ── -->
+    <div id="sb">
+      <div class="sbtabs">
+        <button class="sbt active" onclick="sbTab('live',this)">Live</button>
+        <button class="sbt"        onclick="sbTab('mine',this)">Mine</button>
+        <button class="sbt"        onclick="sbTab('top',this)">Top</button>
+        <button class="sbt"        onclick="sbTab('chat',this)">Chat</button>
+      </div>
+      <div class="sbcont">
+
+        <div class="sbp active" id="tab-live">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span class="sblbl">Live Bets</span>
+            <span class="sbcnt" id="liveCnt">0</span>
+          </div>
+          <div id="liveList"></div>
+        </div>
+
+        <div class="sbp" id="tab-mine">
+          <span class="sblbl">My Bet History</span>
+          <div id="histList"></div>
+        </div>
+
+        <div class="sbp" id="tab-top">
+          <span class="sblbl">🏆 Top Winners Today</span>
+          <div id="lbList"></div>
+        </div>
+
+        <div class="sbp" id="tab-chat" style="padding:0;gap:0">
+          <div class="cmsgs" id="cmsgs"></div>
+          <div class="cirow">
+            <input class="cinp" id="chatInp" placeholder="Say something..." maxlength="120"
+              onkeydown="if(event.key==='Enter')sendChat()">
+            <button class="csnd" onclick="sendChat()">Send</button>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /sb -->
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ══════════════ MODALS ══════════════ -->
+
+<!-- WALLET -->
+<div class="overlay" id="walletModal">
+  <div class="modal">
+    <div class="mhd">
+      <div class="mtitle">💰 Wallet</div>
+      <button class="mclose" onclick="closeM('walletModal')">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="wtabs">
+        <button class="wtb active" onclick="wTab('dep',this)">Deposit</button>
+        <button class="wtb"        onclick="wTab('wit',this)">Withdraw</button>
+        <button class="wtb"        onclick="wTab('txs',this)">History</button>
+        <button class="wtb"        onclick="wTab('limits',this)">Limits</button>
+        <button class="wtb"        onclick="wTab('ref',this)">Referral</button>
+      </div>
+
+      <!-- DEPOSIT -->
+      <div id="wDep">
+        <div class="min-note">Minimum deposit: <span id="minDepTxt">KES 65</span> (≈ $0.50 USD)</div>
+        <div class="mf">
+          <label>Amount</label>
+          <input type="number" id="depAmt" placeholder="Enter amount" oninput="onDepAmtChange()">
+        </div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:-.3rem">
+          ≈ <span id="depUSD">$0.00</span> USD
+        </div>
+        <div style="font-size:.72rem;color:var(--muted);font-family:'Cinzel',serif;letter-spacing:1px;text-transform:uppercase;margin-bottom:.3rem">Select Payment Method</div>
+        <div class="dep-method-grid">
+          <div class="dep-method sel" id="dm-mpesa" onclick="selMethod('mpesa')">
+            <span class="dm-icon">📱</span>M-Pesa
+          </div>
+          <div class="dep-method" id="dm-airtel" onclick="selMethod('airtel')">
+            <span class="dm-icon">📲</span>Airtel Money
+          </div>
+          <div class="dep-method" id="dm-card" onclick="selMethod('card')">
+            <span class="dm-icon">💳</span>Card
+          </div>
+          <div class="dep-method" id="dm-bitcoin" onclick="selMethod('bitcoin')">
+            <span class="dm-icon">₿</span>Bitcoin
+          </div>
+          <div class="dep-method" id="dm-ethereum" onclick="selMethod('ethereum')">
+            <span class="dm-icon">Ξ</span>Ethereum
+          </div>
+          <div class="dep-method" id="dm-bank" onclick="selMethod('bank')">
+            <span class="dm-icon">🏦</span>Bank Transfer
+          </div>
+        </div>
+        <!-- Payment details shown after method selected -->
+        <div id="depDetails"></div>
+        <button class="mbtn mbtn-green" id="depSubmitBtn" onclick="submitDeposit()" style="display:none">
+          Submit Deposit Request →
+        </button>
+      </div>
+
+      <!-- WITHDRAW -->
+      <div id="wWit" style="display:none">
+        <div class="min-note">Available: <span id="witAvail" style="color:var(--gold)">◈0.00</span></div>
+        <div class="mf">
+          <label>Amount</label>
+          <input type="number" id="witAmt" placeholder="Enter amount">
+        </div>
+        <div class="mf">
+          <label>Phone / Account</label>
+          <input type="text" id="witPhone" placeholder="e.g. 0712345678">
+        </div>
+        <div class="mf">
+          <label>Method</label>
+          <select id="witMethod">
+            <option>📱 M-Pesa</option>
+            <option>📲 Airtel Money</option>
+            <option>🏦 Bank Transfer</option>
+            <option>₿ Bitcoin</option>
+          </select>
+        </div>
+        <button class="mbtn mbtn-fire" onclick="submitWithdraw()">Request Withdrawal →</button>
+      </div>
+
+      <!-- TX HISTORY -->
+      <div id="wTxs" style="display:none">
+        <div id="txList"><div style="text-align:center;color:var(--muted);padding:1.5rem;font-size:.82rem">Loading transactions...</div></div>
+      </div>
+
+      <!-- LIMITS -->
+      <div id="wLimits" style="display:none">
+        <div style="font-size:.78rem;color:var(--muted);line-height:1.65">Set personal limits. These apply immediately and take 24h to increase.</div>
+        <div class="rgitem"><span class="rgl">Daily Loss Limit</span><input class="rginp" id="rgDaily" type="number" placeholder="e.g. 500"></div>
+        <div class="rgitem"><span class="rgl">Weekly Limit</span><input class="rginp" id="rgWeekly" type="number" placeholder="e.g. 2000"></div>
+        <div class="rgitem"><span class="rgl">Session Time (mins)</span><input class="rginp" id="rgSession" type="number" placeholder="e.g. 60"></div>
+        <div class="rgitem"><span class="rgl">Max Bet Per Round</span><input class="rginp" id="rgMaxBet" type="number" placeholder="e.g. 200"></div>
+        <button class="mbtn mbtn-green" onclick="saveLimits()">Save Limits</button>
+      </div>
+
+      <!-- REFERRAL -->
+      <div id="wRef" style="display:none">
+        <div class="ref-box">
+          <div class="ref-earn">Earn ◈50</div>
+          <div class="ref-desc">For every friend who registers and makes their first deposit using your link</div>
+        </div>
+        <div class="mf">
+          <label>Your Referral Link</label>
+          <input class="ref-inp" type="text" id="refLink" readonly onclick="this.select()">
+        </div>
+        <button class="mbtn mbtn-fire" onclick="copyRef()">Copy Link →</button>
+        <div style="text-align:center;font-size:.72rem;color:var(--muted);margin-top:.3rem" id="refStats">0 referrals · ◈0 earned</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- PROVABLY FAIR -->
+<div class="overlay" id="pfModal">
+  <div class="modal">
+    <div class="mhd">
+      <div class="mtitle">🔐 Provably Fair</div>
+      <button class="mclose" onclick="closeM('pfModal')">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="font-size:.8rem;color:var(--muted);line-height:1.7">Every crash point is generated server-side using HMAC-SHA256 before the round starts. The server seed is hashed and shown to you upfront — verify the result after each round.</div>
+      <div class="mf"><label>Server Seed Hash (shown before round)</label><input type="text" id="pfSeedHash" readonly onclick="this.select()" style="font-family:'Share Tech Mono',monospace;font-size:.68rem"></div>
+      <div class="mf"><label>Your Client Seed (mix into result)</label><input type="text" id="pfClientSeed" placeholder="Enter any string"></div>
+      <div class="mf"><label>Crash Point (revealed after round)</label><input type="text" id="pfResult" readonly placeholder="Revealed when dragon crashes" style="font-family:'Share Tech Mono',monospace"></div>
+      <div style="font-size:.65rem;color:var(--muted);font-family:'Share Tech Mono',monospace;line-height:1.7;background:rgba(255,255,255,.03);border-radius:8px;padding:.6rem .8rem">
+        hash = HMAC_SHA256(serverSeed, clientSeed)<br>
+        crash = max(1.00, 99/(1-(hex(hash[0..4])/2^32)))
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VIP + ACHIEVEMENTS -->
+<div class="overlay" id="achModal">
+  <div class="modal">
+    <div class="mhd">
+      <div class="mtitle">🏅 VIP & Achievements</div>
+      <button class="mclose" onclick="closeM('achModal')">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="vip-sec">
+        <div class="vip-row">
+          <span class="vip-nm" id="vipName">🥉 Bronze</span>
+          <span style="font-size:.68rem;color:var(--muted)" id="vipNextLbl">◈5,000 for Silver</span>
+        </div>
+        <div class="vip-pw"><div class="vip-pb" id="vipBar" style="width:0%"></div></div>
+        <div class="vip-labs">
+          <span>◈<span id="vipWagered">0</span> wagered</span>
+          <span id="vipNextAmt">Silver at ◈5,000</span>
+        </div>
+      </div>
+      <div class="agrid" id="achGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- DAILY BONUS -->
+<div class="bpop" id="bonusPop">
+  <div class="bptitle">🎁 Daily Login Bonus!</div>
+  <div class="bpamt" id="bonusAmt">+◈50</div>
+  <div class="bpsub">Day 1 streak 🔥 Keep playing daily to grow your bonus!</div>
+  <button class="bpbtn" onclick="claimBonus()">Claim Now →</button>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toastEl"></div>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>
