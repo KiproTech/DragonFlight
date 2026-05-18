@@ -3,330 +3,573 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dragon Flight — Admin</title>
+<title>Dragon Flight — Super Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-:root{--fire:#ff6b1a;--gold:#f5c518;--deep:#07050f;--panel:#110d22;--panel2:#180f2e;--panel3:#1f1438;--border:rgba(245,197,24,.13);--border2:rgba(255,255,255,.06);--text:#f0e6d3;--muted:#6b6080;--green:#22d97a;--red:#ff4455;--blue:#4da6ff;--purple:#a855f7}
+:root{
+  --fire:#ff6b1a;--gold:#f5c518;--deep:#07050f;--panel:#110d22;--panel2:#180f2e;
+  --panel3:#1f1438;--border:rgba(245,197,24,.13);--border2:rgba(255,255,255,.06);
+  --text:#f0e6d3;--muted:#6b6080;--green:#22d97a;--red:#ff4455;
+  --blue:#4da6ff;--purple:#a855f7;
+}
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--deep);font-family:'Rajdhani',sans-serif;color:var(--text);min-height:100vh;display:flex}
 
-/* LOGIN */
-#loginScreen{position:fixed;inset:0;background:var(--deep);display:flex;align-items:center;justify-content:center;z-index:200;flex-direction:column}
-.login-card{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:2.2rem 2rem;width:360px;box-shadow:0 30px 60px rgba(0,0,0,.6)}
-.login-logo{font-family:'Cinzel',serif;font-size:1.3rem;font-weight:700;background:linear-gradient(135deg,var(--gold),var(--fire));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;margin-bottom:.25rem}
-.login-sub{font-size:.68rem;color:var(--muted);letter-spacing:3px;text-align:center;margin-bottom:1.6rem;text-transform:uppercase}
-.lf{display:flex;flex-direction:column;gap:.8rem}
-.lf label{font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px;letter-spacing:2px;text-transform:uppercase;font-family:'Cinzel',serif}
-.lf input{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.95rem;padding:.52rem .85rem;outline:none;transition:border-color .2s}
-.lf input:focus{border-color:rgba(245,197,24,.45)}
-.login-btn{width:100%;padding:.72rem;border-radius:9px;border:none;background:linear-gradient(135deg,#b8620a,var(--fire));color:#fff;font-family:'Cinzel',serif;font-size:.85rem;font-weight:700;letter-spacing:2px;cursor:pointer;margin-top:.4rem;transition:all .2s}
-.login-btn:hover{opacity:.88;transform:translateY(-1px)}
-.login-err{color:var(--red);font-size:.75rem;text-align:center;height:1rem;margin-top:.3rem}
+/* ── LOGIN ─────────────────────────────────────────────────── */
+#loginScreen{position:fixed;inset:0;background:var(--deep);display:flex;align-items:center;
+  justify-content:center;z-index:200;flex-direction:column}
+.login-card{background:var(--panel);border:1px solid var(--border);border-radius:20px;
+  padding:2.4rem 2.2rem;width:370px;box-shadow:0 30px 80px rgba(0,0,0,.7)}
+.login-logo{font-family:'Cinzel',serif;font-size:1.4rem;font-weight:700;
+  background:linear-gradient(135deg,var(--gold),var(--fire));-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;text-align:center;margin-bottom:.2rem}
+.login-sub{font-size:.66rem;color:var(--muted);letter-spacing:3px;text-align:center;
+  margin-bottom:1.8rem;text-transform:uppercase}
+.lf{display:flex;flex-direction:column;gap:.85rem}
+.lf label{font-size:.6rem;color:var(--muted);display:block;margin-bottom:4px;
+  letter-spacing:2px;text-transform:uppercase;font-family:'Cinzel',serif}
+.lf input{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  border-radius:9px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.95rem;
+  padding:.55rem .9rem;outline:none;transition:border-color .2s}
+.lf input:focus{border-color:rgba(245,197,24,.5)}
+.login-btn{width:100%;padding:.75rem;border-radius:9px;border:none;
+  background:linear-gradient(135deg,#b8620a,var(--fire));color:#fff;font-family:'Cinzel',serif;
+  font-size:.88rem;font-weight:700;letter-spacing:2px;cursor:pointer;margin-top:.5rem;transition:all .2s}
+.login-btn:hover{opacity:.85;transform:translateY(-1px)}
+.login-err{color:var(--red);font-size:.75rem;text-align:center;min-height:1rem;margin-top:.3rem}
 
-/* LAYOUT */
-.sidenav{width:210px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1.2rem .85rem;gap:2px;min-height:100vh;position:sticky;top:0;height:100vh;flex-shrink:0}
-.nav-logo{font-family:'Cinzel',serif;font-size:.9rem;font-weight:700;background:linear-gradient(135deg,var(--gold),var(--fire));-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:0 .45rem;margin-bottom:.15rem}
-.nav-sub{font-size:.6rem;color:var(--muted);letter-spacing:2px;padding:0 .45rem;margin-bottom:1.2rem;text-transform:uppercase}
-.nav-sec{font-size:.58rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;padding:.7rem .45rem .25rem;font-family:'Cinzel',serif}
-.nav-item{display:flex;align-items:center;gap:8px;padding:.52rem .65rem;border-radius:9px;color:var(--muted);font-size:.82rem;font-weight:500;cursor:pointer;transition:all .2s;border:1px solid transparent}
+/* ── LAYOUT ────────────────────────────────────────────────── */
+.sidenav{width:215px;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:1.2rem .85rem;gap:2px;
+  min-height:100vh;position:sticky;top:0;height:100vh;flex-shrink:0;overflow-y:auto}
+.nav-logo{font-family:'Cinzel',serif;font-size:.9rem;font-weight:700;
+  background:linear-gradient(135deg,var(--gold),var(--fire));-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;padding:0 .45rem;margin-bottom:.1rem}
+.nav-sub{font-size:.58rem;color:var(--muted);letter-spacing:2px;padding:0 .45rem;
+  margin-bottom:1.2rem;text-transform:uppercase}
+.nav-sec{font-size:.57rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;
+  padding:.75rem .45rem .25rem;font-family:'Cinzel',serif}
+.nav-item{display:flex;align-items:center;gap:8px;padding:.52rem .65rem;border-radius:9px;
+  color:var(--muted);font-size:.82rem;font-weight:500;cursor:pointer;transition:all .2s;
+  border:1px solid transparent;position:relative}
 .nav-item:hover{background:rgba(255,255,255,.03);color:var(--text)}
 .nav-item.active{background:rgba(245,197,24,.09);color:var(--gold);border-color:rgba(245,197,24,.18)}
-.nav-item .ni{font-size:.9rem;width:16px;text-align:center}
+.nav-item .ni{font-size:.9rem;width:18px;text-align:center;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;border-radius:50%;
+  width:17px;height:17px;display:flex;align-items:center;justify-content:center;
+  font-size:.57rem;font-weight:700;flex-shrink:0}
 .nav-sp{flex:1}
-.nav-logout{display:flex;align-items:center;gap:8px;padding:.52rem .65rem;border-radius:9px;color:var(--red);font-size:.8rem;cursor:pointer;border:1px solid rgba(255,68,85,.18);background:rgba(255,68,85,.06);transition:all .2s}
+.nav-admin-info{padding:.6rem .65rem;font-size:.7rem;color:var(--muted);border-top:1px solid var(--border);margin-top:.5rem;padding-top:.8rem}
+.nav-admin-name{color:var(--gold);font-weight:600;font-size:.78rem;margin-bottom:2px}
+.nav-logout{display:flex;align-items:center;gap:8px;padding:.52rem .65rem;border-radius:9px;
+  color:var(--red);font-size:.8rem;cursor:pointer;border:1px solid rgba(255,68,85,.18);
+  background:rgba(255,68,85,.06);transition:all .2s;margin-top:.4rem}
 .nav-logout:hover{background:rgba(255,68,85,.13)}
 
-/* CONTENT */
-.content{flex:1;overflow-y:auto;padding:1.6rem}
+/* ── CONTENT ───────────────────────────────────────────────── */
+.content{flex:1;overflow-y:auto;padding:1.6rem;min-width:0}
 .page{display:none}.page.active{display:block}
 .page-title{font-family:'Cinzel',serif;font-size:1.2rem;font-weight:700;margin-bottom:.22rem}
 .page-sub{color:var(--muted);font-size:.85rem;margin-bottom:1.6rem}
 
-/* STAT CARDS */
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1.6rem}
-.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem}
-.sc-lbl{font-size:.62rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:.45rem;font-family:'Cinzel',serif}
-.sc-val{font-family:'Cinzel',serif;font-size:1.6rem;font-weight:700;line-height:1}
-.sc-sub{font-size:.68rem;margin-top:.35rem;color:var(--muted)}
+/* ── STAT CARDS ────────────────────────────────────────────── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:11px;margin-bottom:1.5rem}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:.95rem 1.1rem}
+.sc-lbl{font-size:.6rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:.4rem;font-family:'Cinzel',serif}
+.sc-val{font-family:'Cinzel',serif;font-size:1.55rem;font-weight:700;line-height:1}
+.sc-sub{font-size:.67rem;margin-top:.3rem;color:var(--muted)}
 .sc-sub.up{color:var(--green)}.sc-sub.dn{color:var(--red)}
 
-/* TABLES */
+/* ── TABLES ────────────────────────────────────────────────── */
 .tcard{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:1.4rem}
-.thead2{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.2rem;border-bottom:1px solid var(--border)}
+.thead2{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.2rem;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:.5rem}
 .ttitle{font-size:.88rem;font-weight:600;font-family:'Cinzel',serif}
-.tbadge{background:rgba(245,197,24,.1);color:var(--gold);border:1px solid rgba(245,197,24,.22);border-radius:50px;font-size:.62rem;font-weight:700;padding:.12rem .58rem;letter-spacing:1px}
+.tbadge{background:rgba(245,197,24,.1);color:var(--gold);border:1px solid rgba(245,197,24,.22);
+  border-radius:50px;font-size:.62rem;font-weight:700;padding:.12rem .58rem;letter-spacing:1px}
 .tbadge.red{background:rgba(255,68,85,.1);color:var(--red);border-color:rgba(255,68,85,.22)}
+.tbadge.green{background:rgba(34,217,122,.1);color:var(--green);border-color:rgba(34,217,122,.22)}
 table{width:100%;border-collapse:collapse;font-size:.82rem}
-th{padding:.6rem 1.2rem;text-align:left;font-size:.62rem;color:var(--muted);font-weight:600;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border2);font-family:'Cinzel',serif}
-td{padding:.68rem 1.2rem;border-bottom:1px solid var(--border2);color:var(--text);font-weight:500}
+th{padding:.6rem 1rem;text-align:left;font-size:.6rem;color:var(--muted);font-weight:600;
+  letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border2);
+  font-family:'Cinzel',serif;white-space:nowrap}
+td{padding:.65rem 1rem;border-bottom:1px solid var(--border2);color:var(--text);font-weight:500}
 tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(255,255,255,.015)}
-.badge{display:inline-block;padding:.18rem .58rem;border-radius:50px;font-size:.65rem;font-weight:700;letter-spacing:.5px;border:1px solid}
+tr:hover td{background:rgba(255,255,255,.012)}
+.badge{display:inline-block;padding:.18rem .58rem;border-radius:50px;font-size:.64rem;
+  font-weight:700;letter-spacing:.5px;border:1px solid;white-space:nowrap}
 .bg-green{background:rgba(34,217,122,.13);color:var(--green);border-color:rgba(34,217,122,.28)}
-.bg-red  {background:rgba(255,68,85,.12); color:var(--red);  border-color:rgba(255,68,85,.28)}
-.bg-gold {background:rgba(245,197,24,.1); color:var(--gold); border-color:rgba(245,197,24,.25)}
-.bg-blue {background:rgba(77,166,255,.12);color:var(--blue); border-color:rgba(77,166,255,.25)}
+.bg-red  {background:rgba(255,68,85,.12);color:var(--red);border-color:rgba(255,68,85,.28)}
+.bg-gold {background:rgba(245,197,24,.1);color:var(--gold);border-color:rgba(245,197,24,.25)}
+.bg-blue {background:rgba(77,166,255,.12);color:var(--blue);border-color:rgba(77,166,255,.25)}
 .bg-muted{background:rgba(107,96,128,.1);color:var(--muted);border-color:rgba(107,96,128,.2)}
 .crash-val{font-weight:700;font-family:'Share Tech Mono',monospace}
 .cv-L{color:var(--red)}.cv-M{color:var(--gold)}.cv-H{color:var(--green)}
-.act-btn{padding:.28rem .72rem;border-radius:7px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;transition:all .2s;margin-right:3px}
+.act-btn{padding:.28rem .72rem;border-radius:7px;border:1px solid var(--border);
+  background:rgba(255,255,255,.04);color:var(--muted);font-family:'Rajdhani',sans-serif;
+  font-size:.75rem;font-weight:600;cursor:pointer;transition:all .2s;margin-right:3px}
 .act-btn:hover{color:var(--gold);border-color:rgba(245,197,24,.3)}
 .act-btn.approve{border-color:rgba(34,217,122,.3);color:var(--green);background:rgba(34,217,122,.07)}
+.act-btn.approve:hover{background:rgba(34,217,122,.15)}
 .act-btn.reject{border-color:rgba(255,68,85,.3);color:var(--red);background:rgba(255,68,85,.07)}
+.act-btn.reject:hover{background:rgba(255,68,85,.15)}
 .act-btn.ban{border-color:rgba(255,68,85,.3);color:var(--red)}
 .act-btn.unban{border-color:rgba(34,217,122,.3);color:var(--green)}
 
-/* SEARCH ROW */
+/* ── SEARCH ROW ────────────────────────────────────────────── */
 .srow{display:flex;gap:8px;margin-bottom:.9rem;align-items:center;flex-wrap:wrap}
-.sinp{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.85rem;padding:.48rem .85rem;outline:none}
+.sinp{flex:1;min-width:170px;background:var(--panel);border:1px solid var(--border);
+  border-radius:9px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.85rem;
+  padding:.47rem .85rem;outline:none}
 .sinp:focus{border-color:rgba(245,197,24,.4)}
-.fbtn{background:var(--panel);border:1px solid var(--border);border-radius:9px;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:.8rem;font-weight:600;padding:.48rem .85rem;cursor:pointer;transition:all .2s}
+.fbtn{background:var(--panel);border:1px solid var(--border);border-radius:9px;color:var(--muted);
+  font-family:'Rajdhani',sans-serif;font-size:.8rem;font-weight:600;padding:.47rem .85rem;cursor:pointer;transition:all .2s;white-space:nowrap}
 .fbtn:hover{border-color:var(--gold);color:var(--gold)}
 .fbtn.on{background:rgba(245,197,24,.1);color:var(--gold);border-color:rgba(245,197,24,.28)}
 
-/* CHART */
+/* ── BAR CHART ─────────────────────────────────────────────── */
 .bar-chart{display:flex;align-items:flex-end;gap:5px;height:75px;margin-top:.9rem}
 .bar-w{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
 .bar{width:100%;border-radius:4px 4px 0 0;transition:height .4s;min-height:2px}
-.bar.profit{background:var(--green);opacity:.65}
-.bar.loss{background:var(--red);opacity:.5}
-.bar-lbl{font-size:.58rem;color:var(--muted)}
+.bar.profit{background:var(--green);opacity:.65}.bar.loss{background:var(--red);opacity:.5}
+.bar-lbl{font-size:.57rem;color:var(--muted)}
 
-/* MINI GRAPH */
-.mini-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:1.2rem}
+/* ── MINI STATS ────────────────────────────────────────────── */
+.mini-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:1.2rem}
 .ms{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:.8rem;text-align:center}
-.ms-v{font-family:'Cinzel',serif;font-size:1.3rem;font-weight:700;color:var(--gold)}
-.ms-l{font-size:.65rem;color:var(--muted);margin-top:2px;letter-spacing:1px;text-transform:uppercase}
+.ms-v{font-family:'Cinzel',serif;font-size:1.25rem;font-weight:700;color:var(--gold)}
+.ms-l{font-size:.63rem;color:var(--muted);margin-top:2px;letter-spacing:1px;text-transform:uppercase}
 
-/* SETTINGS */
-.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
-.scard{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.2rem}
-.scard-title{font-size:.78rem;font-weight:600;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:.9rem;font-family:'Cinzel',serif}
-.srow2{display:flex;align-items:center;justify-content:space-between;gap:.8rem;margin-bottom:.8rem}
-.srow2 label{font-size:.85rem;color:var(--text)}
-.srow2 input[type=number],.srow2 select{width:100px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.88rem;padding:.35rem .6rem;outline:none;text-align:right}
-.srow2 select{text-align:left;width:120px}
-.srow2 select option{background:var(--panel2)}
-.sbtn{margin-top:.5rem;padding:.6rem 1.2rem;border-radius:9px;border:none;background:linear-gradient(135deg,#b8620a,var(--fire));color:#fff;font-family:'Cinzel',serif;font-size:.75rem;font-weight:700;letter-spacing:1.5px;cursor:pointer;transition:all .2s}
-.sbtn:hover{opacity:.88}
-.full-inp{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.88rem;padding:.45rem .7rem;outline:none;margin-top:.3rem}
-.full-inp:focus{border-color:rgba(245,197,24,.4)}
+/* ── PENDING DEPOSIT CARDS ─────────────────────────────────── */
+.dep-card{background:rgba(245,197,24,.04);border:1px solid rgba(245,197,24,.16);
+  border-radius:12px;padding:.9rem 1.1rem;margin-bottom:.7rem;transition:border-color .2s}
+.dep-card:hover{border-color:rgba(245,197,24,.28)}
+.dep-card-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.6rem;gap:1rem}
+.dep-user{font-weight:700;font-size:.9rem}
+.dep-email{color:var(--muted);font-size:.74rem;margin-top:1px}
+.dep-method-tag{font-size:.7rem;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:4px}
+.dep-amt{font-family:'Share Tech Mono',monospace;font-size:1.1rem;color:var(--gold);font-weight:700;text-align:right}
+.dep-usd{font-size:.7rem;color:var(--muted);text-align:right;margin-top:2px}
+.wait-badge{display:inline-block;background:rgba(255,68,85,.12);color:var(--red);
+  border:1px solid rgba(255,68,85,.25);border-radius:50px;font-size:.62rem;font-weight:700;
+  padding:.12rem .55rem;margin-top:4px}
+.wait-badge.ok{background:rgba(245,197,24,.12);color:var(--gold);border-color:rgba(245,197,24,.25)}
+.dep-meta{display:grid;grid-template-columns:1fr 1fr;gap:.35rem .9rem;font-size:.74rem;
+  color:var(--muted);margin-bottom:.7rem;margin-top:.5rem}
+.dep-meta-item{display:flex;flex-direction:column;gap:2px}
+.dep-meta-label{font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.dep-meta-val{color:var(--text);font-weight:600;font-family:'Share Tech Mono',monospace;font-size:.78rem}
+.dep-actions{display:flex;gap:7px;align-items:center}
+.dep-actions .act-btn{padding:.38rem .9rem;font-size:.8rem}
 
-/* USER MODAL */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;z-index:100;padding:1rem;backdrop-filter:blur(4px)}
-.overlay.open{display:flex}
-.modal{background:var(--panel2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:400px;max-height:88vh;overflow-y:auto;animation:mIn .3s cubic-bezier(.34,1.56,.64,1)}
-@keyframes mIn{from{opacity:0;transform:scale(.94) translateY(10px)}to{opacity:1;transform:none}}
-.mhd{display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.1rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel2);z-index:1}
-.mtitle{font-family:'Cinzel',serif;font-size:.88rem;font-weight:700}
-.mclose{background:transparent;border:none;color:var(--muted);font-size:1.05rem;cursor:pointer}
-.mbody{padding:.9rem 1.1rem;display:flex;flex-direction:column;gap:.75rem}
-.mf{display:flex;flex-direction:column;gap:4px}
-.mf label{font-size:.6rem;color:var(--muted);font-weight:600;letter-spacing:2px;text-transform:uppercase;font-family:'Cinzel',serif}
-.mf input,.mf select,.mf textarea{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.9rem;padding:.45rem .78rem;outline:none}
-.mf input:focus,.mf select:focus{border-color:rgba(245,197,24,.4)}
-.mf select option{background:var(--panel2)}
-.mbtns{display:flex;gap:8px;margin-top:.5rem}
-.mbtn{flex:1;padding:.62rem;border-radius:9px;border:none;font-family:'Cinzel',serif;font-size:.72rem;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all .2s}
-.mbtn-green{background:linear-gradient(135deg,#0a7035,var(--green));color:#fff}
-.mbtn-red{background:rgba(255,68,85,.15);border:1px solid rgba(255,68,85,.3);color:var(--red)}
-.mbtn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
-
-/* PENDING DEPOSIT CARD */
-.dep-card{background:rgba(245,197,24,.05);border:1px solid rgba(245,197,24,.18);border-radius:10px;padding:.8rem 1rem;margin-bottom:.6rem}
-.dep-card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem}
-.dep-user{font-weight:700;font-size:.88rem}
-.dep-amt{font-family:'Share Tech Mono',monospace;font-size:1rem;color:var(--gold);font-weight:700}
-.dep-meta{display:grid;grid-template-columns:1fr 1fr;gap:.3rem .8rem;font-size:.75rem;color:var(--muted);margin-bottom:.6rem}
-.dep-meta span{display:flex;flex-direction:column;gap:1px}
-.dep-meta b{color:var(--text);font-weight:600}
-.dep-actions{display:flex;gap:6px}
-.wait-badge{background:rgba(245,197,24,.12);color:var(--gold);border:1px solid rgba(245,197,24,.25);border-radius:50px;font-size:.62rem;font-weight:700;padding:.12rem .55rem}
-.toast{position:fixed;bottom:1rem;right:1rem;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:.55rem 1rem;font-size:.82rem;font-weight:600;z-index:400;transform:translateX(240px);opacity:0;transition:all .3s;max-width:270px}
-.toast.show{transform:translateX(0);opacity:1}
-.tw{border-color:rgba(34,217,122,.38);color:var(--green)}.tl{border-color:rgba(255,68,85,.35);color:var(--red)}.ti{border-color:rgba(77,166,255,.35);color:var(--blue)}.tg{border-color:rgba(245,197,24,.35);color:var(--gold)}
-/* CRASH ANALYTICS */
-.cp-pill{padding:.2rem .55rem;border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:.72rem;font-weight:700;min-width:48px;text-align:center;cursor:default;transition:transform .15s}
-.cp-pill:hover{transform:scale(1.12)}
+/* ── CRASH ANALYTICS ───────────────────────────────────────── */
+.cp-pill{padding:.2rem .55rem;border-radius:6px;font-family:'Share Tech Mono',monospace;
+  font-size:.72rem;font-weight:700;min-width:50px;text-align:center;cursor:default;transition:transform .15s}
+.cp-pill:hover{transform:scale(1.1)}
 .cp-L{background:rgba(255,68,85,.14);color:var(--red);border:1px solid rgba(255,68,85,.25)}
 .cp-M{background:rgba(245,197,24,.1);color:var(--gold);border:1px solid rgba(245,197,24,.22)}
 .cp-H{background:rgba(34,217,122,.1);color:var(--green);border:1px solid rgba(34,217,122,.22)}
 .dist-bar-w{display:flex;flex-direction:column;align-items:center;flex:1;gap:3px}
 .dist-bar{width:100%;border-radius:4px 4px 0 0;transition:height .5s;min-height:2px}
 
-@media(max-width:700px){.sgrid{grid-template-columns:1fr}.sidenav{width:56px}.nav-item span,.nav-logo,.nav-sub,.nav-sec,.nav-logout span{display:none}.content{padding:.9rem}}
+/* ── CRASH PREVIEW ─────────────────────────────────────────── */
+.preview-hero{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:1.4rem}
+.preview-card{background:var(--panel);border-radius:12px;padding:1.1rem 1.3rem;text-align:center;border:1px solid var(--border)}
+.preview-card.highlight{border-color:rgba(255,107,26,.35);background:rgba(255,107,26,.05)}
+.preview-card.next{border-color:rgba(77,166,255,.3);background:rgba(77,166,255,.04)}
+.pc-label{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:.6rem;font-family:'Cinzel',serif}
+.pc-value{font-family:'Share Tech Mono',monospace;font-size:2rem;font-weight:700;line-height:1}
+.pc-sub{font-size:.68rem;color:var(--muted);margin-top:.4rem}
+.preview-alert{background:rgba(255,107,26,.07);border:1px solid rgba(255,107,26,.2);
+  border-radius:10px;padding:.75rem 1rem;font-size:.8rem;color:rgba(245,197,24,.9);
+  margin-bottom:1.4rem;display:flex;align-items:center;gap:8px}
+
+/* ── SETTINGS ──────────────────────────────────────────────── */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
+.scard{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.2rem}
+.scard-title{font-size:.75rem;font-weight:600;color:var(--muted);letter-spacing:1px;
+  text-transform:uppercase;margin-bottom:.9rem;font-family:'Cinzel',serif}
+.srow2{display:flex;align-items:center;justify-content:space-between;gap:.8rem;margin-bottom:.8rem}
+.srow2 label{font-size:.83rem;color:var(--text)}
+.srow2 input[type=number],.srow2 select{width:110px;background:var(--panel2);border:1px solid var(--border);
+  border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.88rem;
+  padding:.35rem .6rem;outline:none;text-align:right}
+.srow2 select{text-align:left;width:130px}
+.srow2 select option{background:var(--panel2)}
+.sbtn{margin-top:.5rem;padding:.6rem 1.2rem;border-radius:9px;border:none;
+  background:linear-gradient(135deg,#b8620a,var(--fire));color:#fff;font-family:'Cinzel',serif;
+  font-size:.75rem;font-weight:700;letter-spacing:1.5px;cursor:pointer;transition:all .2s}
+.sbtn:hover{opacity:.88}
+.sbtn.danger{background:linear-gradient(135deg,#7a0a0a,var(--red))}
+.full-inp{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.88rem;padding:.45rem .7rem;outline:none;margin-top:.3rem}
+.full-inp:focus{border-color:rgba(245,197,24,.4)}
+.full-inp[readonly]{opacity:.5;cursor:default}
+
+/* ── MODALS ────────────────────────────────────────────────── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;align-items:center;
+  justify-content:center;z-index:100;padding:1rem;backdrop-filter:blur(5px)}
+.overlay.open{display:flex}
+.modal{background:var(--panel2);border:1px solid var(--border);border-radius:16px;width:100%;
+  max-width:420px;max-height:90vh;overflow-y:auto;animation:mIn .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes mIn{from{opacity:0;transform:scale(.93) translateY(12px)}to{opacity:1;transform:none}}
+.mhd{display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.1rem;
+  border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel2);z-index:1}
+.mtitle{font-family:'Cinzel',serif;font-size:.9rem;font-weight:700}
+.mclose{background:transparent;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;
+  padding:0 .3rem;transition:color .2s}
+.mclose:hover{color:var(--text)}
+.mbody{padding:.9rem 1.1rem;display:flex;flex-direction:column;gap:.8rem}
+.mf{display:flex;flex-direction:column;gap:5px}
+.mf label{font-size:.6rem;color:var(--muted);font-weight:600;letter-spacing:2px;
+  text-transform:uppercase;font-family:'Cinzel',serif}
+.mf input,.mf select,.mf textarea{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  border-radius:9px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.92rem;padding:.47rem .8rem;outline:none}
+.mf input:focus,.mf select:focus{border-color:rgba(245,197,24,.4)}
+.mf select option{background:var(--panel2)}
+.mbtns{display:flex;gap:8px;margin-top:.5rem}
+.mbtn{flex:1;padding:.65rem;border-radius:9px;border:none;font-family:'Cinzel',serif;
+  font-size:.73rem;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all .2s}
+.mbtn-green{background:linear-gradient(135deg,#0a7035,var(--green));color:#fff}
+.mbtn-red{background:rgba(255,68,85,.15);border:1px solid rgba(255,68,85,.3);color:var(--red)}
+.mbtn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+
+/* ── TOAST ─────────────────────────────────────────────────── */
+.toast{position:fixed;bottom:1.2rem;right:1.2rem;background:var(--panel2);border:1px solid var(--border);
+  border-radius:10px;padding:.58rem 1.1rem;font-size:.82rem;font-weight:600;z-index:400;
+  transform:translateX(260px);opacity:0;transition:all .32s;max-width:280px;pointer-events:none}
+.toast.show{transform:translateX(0);opacity:1}
+.tw{border-color:rgba(34,217,122,.38);color:var(--green)}.tl{border-color:rgba(255,68,85,.35);color:var(--red)}
+.ti{border-color:rgba(77,166,255,.35);color:var(--blue)}.tg{border-color:rgba(245,197,24,.35);color:var(--gold)}
+
+/* ── ADMIN LOGS ────────────────────────────────────────────── */
+.log-item{display:flex;align-items:flex-start;gap:.7rem;padding:.6rem 0;border-bottom:1px solid var(--border2)}
+.log-item:last-child{border-bottom:none}
+.log-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0;margin-top:1px}
+.log-icon.approve{background:rgba(34,217,122,.12);border:1px solid rgba(34,217,122,.22)}
+.log-icon.reject{background:rgba(255,68,85,.1);border:1px solid rgba(255,68,85,.2)}
+.log-icon.ban{background:rgba(255,68,85,.1);border:1px solid rgba(255,68,85,.2)}
+.log-icon.edit{background:rgba(77,166,255,.1);border:1px solid rgba(77,166,255,.2)}
+.log-action{font-size:.82rem;font-weight:600}
+.log-detail{font-size:.72rem;color:var(--muted);margin-top:1px}
+.log-time{font-size:.68rem;color:var(--muted);margin-left:auto;white-space:nowrap;padding-top:2px}
+
+@media(max-width:720px){
+  .sgrid{grid-template-columns:1fr}
+  .sidenav{
+    position:fixed;left:-220px;top:0;bottom:0;z-index:150;
+    transition:left .28s cubic-bezier(.4,0,.2,1);
+    width:215px!important;
+    box-shadow:4px 0 24px rgba(0,0,0,.5);
+  }
+  .sidenav.open{left:0}
+  .nav-item span:not(.ni),.nav-logo,.nav-sub,.nav-sec,.nav-logout span,.nav-admin-info{display:flex}
+  #mobileOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:149}
+  #mobileOverlay.open{display:block}
+  #hamburger{display:flex;align-items:center;justify-content:center;position:fixed;top:.7rem;left:.7rem;
+    z-index:160;background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    width:38px;height:38px;cursor:pointer;font-size:1.1rem;color:var(--gold)}
+  .content{padding:.85rem;padding-top:3.5rem}
+  .preview-hero{grid-template-columns:1fr 1fr}
+  .stat-grid{grid-template-columns:repeat(2,1fr)}
+  table{font-size:.75rem}
+  th,td{padding:.5rem .6rem}
+}
+@media(min-width:721px){
+  #hamburger{display:none}
+}
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="loginScreen">
+<!-- ── BOOT SPLASH (shown while checking session) ─────────────── -->
+<div id="bootSplash" style="position:fixed;inset:0;background:var(--deep);display:flex;align-items:center;justify-content:center;z-index:300;flex-direction:column;gap:1rem">
+  <div style="font-family:'Cinzel',serif;font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,var(--gold),var(--fire));-webkit-background-clip:text;-webkit-text-fill-color:transparent">🐉 Dragon Flight</div>
+  <div style="font-size:.7rem;color:var(--muted);letter-spacing:3px;text-transform:uppercase">Checking session…</div>
+  <div style="width:36px;height:36px;border:3px solid rgba(245,197,24,.15);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite"></div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+<!-- ── LOGIN ─────────────────────────────────────────────────── -->
+<div id="loginScreen" style="display:none">
   <div class="login-card">
     <div class="login-logo">🐉 Dragon Flight</div>
     <div class="login-sub">Super Admin Access</div>
     <div class="lf">
-      <div><label>Username</label><input type="text" id="lUser" placeholder="admin" onkeydown="if(event.key==='Enter')doLogin()"></div>
-      <div><label>Password</label><input type="password" id="lPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
-      <button class="login-btn" onclick="doLogin()">Enter Admin Panel</button>
+      <div><label>Email or Username</label>
+        <input type="text" id="lUser" placeholder="admin@dragonflight.bet" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div><label>Password</label>
+        <input type="password" id="lPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="login-btn" onclick="doLogin()" id="loginBtn">Enter Admin Panel</button>
       <div class="login-err" id="lErr"></div>
     </div>
   </div>
 </div>
 
-<!-- ADMIN LAYOUT -->
+<!-- ── MOBILE NAV ─────────────────────────────────────────────── -->
+<div id="hamburger" onclick="toggleMobileNav()">☰</div>
+<div id="mobileOverlay" onclick="closeMobileNav()"></div>
+
+<!-- ── ADMIN LAYOUT ───────────────────────────────────────────── -->
 <div id="adminLayout" style="display:none;width:100%;flex-direction:row">
 
   <nav class="sidenav">
     <div class="nav-logo">🐉 Dragon Flight</div>
-    <div class="nav-sub">Admin Panel</div>
+    <div class="nav-sub">Super Admin Panel</div>
     <div class="nav-sec">Overview</div>
     <div class="nav-item active" onclick="showPage('dashboard',this)"><span class="ni">📊</span><span>Dashboard</span></div>
-    <div class="nav-item" onclick="showPage('pending',this)"><span class="ni">⏳</span><span>Pending Deposits</span><span id="pendingBadge" style="margin-left:auto;background:var(--red);color:#fff;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:.58rem;font-weight:700"></span></div>
-    <div class="nav-sec">Management</div>
+    <div class="nav-item" onclick="showPage('pending',this)">
+      <span class="ni">⏳</span><span>Pending Deposits</span>
+      <span class="nav-badge" id="pendingBadge" style="display:none"></span>
+    </div>
+    <div class="nav-sec">Game</div>
+    <div class="nav-item" onclick="showPage('preview',this)"><span class="ni">🔮</span><span>Crash Preview</span></div>
     <div class="nav-item" onclick="showPage('rounds',this)"><span class="ni">🎲</span><span>Round History</span></div>
     <div class="nav-item" onclick="showPage('crashes',this)"><span class="ni">📈</span><span>Crash Analytics</span></div>
+    <div class="nav-sec">Management</div>
     <div class="nav-item" onclick="showPage('users',this)"><span class="ni">👥</span><span>Users</span></div>
     <div class="nav-item" onclick="showPage('bets',this)"><span class="ni">💰</span><span>All Bets</span></div>
+    <div class="nav-item" onclick="showPage('txs',this)"><span class="ni">💳</span><span>All Transactions</span></div>
+    <div class="nav-item" onclick="showPage('logs',this)"><span class="ni">📋</span><span>Admin Logs</span></div>
     <div class="nav-sec">Config</div>
     <div class="nav-item" onclick="showPage('settings',this)"><span class="ni">⚙️</span><span>Settings</span></div>
     <div class="nav-sp"></div>
+    <div class="nav-admin-info">
+      <div class="nav-admin-name" id="navAdminName">Admin</div>
+      <div>Super Admin</div>
+    </div>
     <div class="nav-logout" onclick="doLogout()"><span class="ni">🚪</span><span>Logout</span></div>
   </nav>
 
   <main class="content">
 
-    <!-- DASHBOARD -->
+    <!-- ── DASHBOARD ──────────────────────────────────────────── -->
     <div class="page active" id="page-dashboard">
       <div class="page-title">Dashboard</div>
       <div class="page-sub">Live overview of Dragon Flight performance</div>
+
+      <!-- ── LIVE CRASH QUEUE BANNER ── -->
+      <div id="liveQueueBanner" style="background:rgba(255,107,26,.06);border:1px solid rgba(255,107,26,.28);border-radius:12px;padding:.8rem 1.2rem;margin-bottom:1rem;display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
+          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);animation:lqPulse 1.4s infinite"></span>
+          <span style="font-family:'Cinzel',serif;font-size:.68rem;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">Crash Queue · Live</span>
+        </div>
+        <div style="display:flex;gap:1.6rem;flex-wrap:wrap;align-items:center">
+          <div style="text-align:center">
+            <div style="font-size:.6rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Current Round</div>
+            <div id="lqCurRound" style="font-family:'Share Tech Mono',monospace;color:var(--gold);font-weight:700;font-size:.95rem">—</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:.6rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Active Crash Point</div>
+            <div id="lqActiveCrash" style="font-family:'Share Tech Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--fire)">Loading…</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:.6rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Next Up</div>
+            <div id="lqNextCrash" style="font-family:'Share Tech Mono',monospace;color:var(--blue);font-weight:700;font-size:.95rem">—</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:.6rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">Queue Left</div>
+            <div id="lqRemaining" style="font-family:'Share Tech Mono',monospace;color:var(--text);font-weight:700;font-size:.95rem">—</div>
+          </div>
+          <div><span id="lqStatus" class="badge bg-blue" style="font-size:.65rem">Waiting</span></div>
+        </div>
+      </div>
+      <style>@keyframes lqPulse{0%{box-shadow:0 0 0 0 rgba(34,217,122,.6)}70%{box-shadow:0 0 0 9px rgba(34,217,122,0)}100%{box-shadow:0 0 0 0 rgba(34,217,122,0)}}</style>
+
       <div class="stat-grid">
-        <div class="stat-card"><div class="sc-lbl">Total Revenue</div><div class="sc-val" style="color:var(--gold)" id="dRevenue">◈0</div><div class="sc-sub up">All-time bets</div></div>
-        <div class="stat-card"><div class="sc-lbl">House Profit</div><div class="sc-val" style="color:var(--green)" id="dProfit">◈0</div><div class="sc-sub">After payouts</div></div>
+        <div class="stat-card"><div class="sc-lbl">Total Revenue</div><div class="sc-val" style="color:var(--gold)" id="dRevenue">◈0</div><div class="sc-sub">All bets placed</div></div>
+        <div class="stat-card"><div class="sc-lbl">House Profit</div><div class="sc-val" style="color:var(--green)" id="dProfit">◈0</div><div class="sc-sub">After all payouts</div></div>
         <div class="stat-card"><div class="sc-lbl">Total Players</div><div class="sc-val" style="color:var(--blue)" id="dPlayers">0</div><div class="sc-sub" id="dActive">0 active</div></div>
         <div class="stat-card"><div class="sc-lbl">Rounds Played</div><div class="sc-val" id="dRounds">0</div><div class="sc-sub">Since launch</div></div>
-        <div class="stat-card"><div class="sc-lbl">Avg Crash</div><div class="sc-val" style="color:var(--gold)" id="dAvgCrash">0x</div><div class="sc-sub">All-time avg</div></div>
+        <div class="stat-card"><div class="sc-lbl">Avg Crash</div><div class="sc-val" style="color:var(--gold)" id="dAvgCrash">—</div><div class="sc-sub">All-time average</div></div>
         <div class="stat-card"><div class="sc-lbl">Pending Deposits</div><div class="sc-val" style="color:var(--red)" id="dPending">0</div><div class="sc-sub dn">Awaiting approval</div></div>
+        <div class="stat-card"><div class="sc-lbl">Total Deposits</div><div class="sc-val" style="color:var(--green)" id="dTotalDeposits">◈0</div><div class="sc-sub">Approved only</div></div>
+        <div class="stat-card" style="border-color:rgba(255,107,26,.3);background:rgba(255,107,26,.04)"><div class="sc-lbl">Next Queued Crash</div><div class="sc-val" style="color:var(--fire);font-size:1.1rem;margin-top:.2rem" id="dNextCrash">🔒 Loading</div><div class="sc-sub">From crash_queue DB</div></div>
       </div>
       <div class="tcard" style="padding:1.1rem 1.3rem;margin-bottom:1.2rem">
         <div class="ttitle">House Profit — Last 7 Days</div>
         <div class="bar-chart" id="profitChart"></div>
       </div>
       <div class="tcard">
-        <div class="thead2"><div class="ttitle">Recent Rounds</div><div class="tbadge" id="liveTag">LIVE</div></div>
-        <table><thead><tr><th>Round</th><th>Crash Point</th><th>Total Bets</th><th>Payout</th><th>Profit</th><th>Players</th><th>Time</th></tr></thead>
+        <div class="thead2"><div class="ttitle">Recent Rounds</div><div class="tbadge green" id="liveTag">● LIVE</div></div>
+        <table><thead><tr><th>Round</th><th>Crash Point</th><th>Bets</th><th>Payout</th><th>Profit</th><th>Players</th><th>Time</th></tr></thead>
         <tbody id="dashRounds"></tbody></table>
       </div>
     </div>
 
-    <!-- PENDING DEPOSITS -->
+    <!-- ── PENDING DEPOSITS ────────────────────────────────────── -->
     <div class="page" id="page-pending">
       <div class="page-title">Pending Deposits</div>
-      <div class="page-sub">Review and approve or reject player deposit requests</div>
+      <div class="page-sub">Approve or reject player deposit requests — approvals credit balance instantly</div>
       <div class="mini-stats">
-        <div class="ms"><div class="ms-v" id="pdTotal">0</div><div class="ms-l">Total Pending</div></div>
-        <div class="ms"><div class="ms-v" id="pdAmount" style="color:var(--gold)">◈0</div><div class="ms-l">Total Amount</div></div>
+        <div class="ms"><div class="ms-v" id="pdTotal">0</div><div class="ms-l">Pending</div></div>
+        <div class="ms"><div class="ms-v" id="pdAmount">◈0</div><div class="ms-l">Total Amount</div></div>
         <div class="ms"><div class="ms-v" id="pdOldest" style="color:var(--red)">—</div><div class="ms-l">Oldest (mins)</div></div>
+        <div class="ms"><div class="ms-v" id="pdApprovedToday" style="color:var(--green)">0</div><div class="ms-l">Approved Today</div></div>
       </div>
-      <div id="pendingList"><div style="text-align:center;color:var(--muted);padding:2rem">Loading pending deposits...</div></div>
+      <div id="pendingList"><div style="text-align:center;color:var(--muted);padding:2.5rem;font-size:.85rem">Loading deposits...</div></div>
     </div>
 
-    <!-- ROUNDS -->
+    <!-- ── CRASH PREVIEW ──────────────────────────────────────── -->
+    <div class="page" id="page-preview">
+      <div class="page-title">🔮 Crash Preview</div>
+      <div class="page-sub">Pre-generated crash points — only visible to admins. Players never see this.</div>
+      <div class="preview-alert">🔒 This data is generated server-side using HMAC-SHA256 before each round. Players cannot access this table.</div>
+
+      <div class="preview-hero">
+        <div class="preview-card">
+          <div class="pc-label">Current Round</div>
+          <div class="pc-value" style="color:var(--gold)" id="pvCurRound">—</div>
+          <div class="pc-sub" id="pvCurStatus">Loading...</div>
+        </div>
+        <div class="preview-card highlight">
+          <div class="pc-label">Current Round Crash</div>
+          <div class="pc-value" style="color:var(--fire)" id="pvCurCrash">🔒</div>
+          <div class="pc-sub">Live — crashes here</div>
+        </div>
+        <div class="preview-card next">
+          <div class="pc-label">Next Round Crash</div>
+          <div class="pc-value" style="color:var(--blue)" id="pvNextCrash">—</div>
+          <div class="pc-sub">Round <span id="pvNextRound">—</span></div>
+        </div>
+      </div>
+
+      <div class="tcard">
+        <div class="thead2">
+          <div class="ttitle">Upcoming 20 Rounds</div>
+          <div style="display:flex;gap:7px;align-items:center">
+            <button class="fbtn" onclick="regenPreview()" style="padding:.32rem .75rem;font-size:.75rem">🔄 Regenerate Queue</button>
+            <button class="fbtn" onclick="loadPreview()" style="padding:.32rem .75rem;font-size:.75rem">↺ Refresh</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Round #</th><th>Crash Point</th><th>Category</th><th>Risk</th><th>Server Hash (first 16)</th><th>Status</th></tr></thead>
+          <tbody id="previewTable"></tbody>
+        </table>
+      </div>
+
+      <div class="tcard" style="padding:1.1rem 1.3rem">
+        <div class="ttitle" style="margin-bottom:.9rem">Upcoming Pattern</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap" id="previewPills"></div>
+      </div>
+    </div>
+
+    <!-- ── ROUND HISTORY ──────────────────────────────────────── -->
     <div class="page" id="page-rounds">
       <div class="page-title">Round History</div>
       <div class="page-sub">All game rounds with crash points and financials</div>
       <div class="srow">
         <input class="sinp" placeholder="Search round #..." id="roundSearch" oninput="filterRounds()">
-        <button class="fbtn" id="rf-all" onclick="filterCrash('all',this)">All</button>
-        <button class="fbtn" id="rf-low" onclick="filterCrash('low',this)">Low (&lt;1.5x)</button>
-        <button class="fbtn" id="rf-mid" onclick="filterCrash('mid',this)">Mid</button>
-        <button class="fbtn" id="rf-high" onclick="filterCrash('high',this)">High (&gt;3x)</button>
+        <button class="fbtn on" onclick="filterCrash('all',this)">All</button>
+        <button class="fbtn" onclick="filterCrash('low',this)">Low &lt;1.5x</button>
+        <button class="fbtn" onclick="filterCrash('mid',this)">Mid</button>
+        <button class="fbtn" onclick="filterCrash('high',this)">High &gt;3x</button>
       </div>
-      <div class="tcard"><table><thead><tr><th>Round</th><th>Crash</th><th>Total Bets</th><th>Payout</th><th>Profit</th><th>Players</th><th>Status</th><th>Time</th></tr></thead>
+      <div class="tcard"><table><thead><tr><th>Round</th><th>Crash</th><th>Bets</th><th>Payout</th><th>Profit</th><th>Players</th><th>Status</th><th>Time</th></tr></thead>
       <tbody id="roundsTable"></tbody></table></div>
     </div>
 
-    <!-- CRASH ANALYTICS -->
+    <!-- ── CRASH ANALYTICS ────────────────────────────────────── -->
     <div class="page" id="page-crashes">
       <div class="page-title">Crash Analytics</div>
-      <div class="page-sub">Full visibility into every crash point — distributions, streaks, and patterns</div>
+      <div class="page-sub">Full visibility into every crash — distributions, streaks, and patterns</div>
       <div class="stat-grid" style="margin-bottom:1.2rem">
-        <div class="stat-card"><div class="sc-lbl">Lowest Crash</div><div class="sc-val" style="color:var(--red)" id="caMin">—</div><div class="sc-sub">All-time</div></div>
-        <div class="stat-card"><div class="sc-lbl">Highest Crash</div><div class="sc-val" style="color:var(--green)" id="caMax">—</div><div class="sc-sub">All-time</div></div>
-        <div class="stat-card"><div class="sc-lbl">Average Crash</div><div class="sc-val" style="color:var(--gold)" id="caAvg">—</div><div class="sc-sub">Mean multiplier</div></div>
-        <div class="stat-card"><div class="sc-lbl">Median Crash</div><div class="sc-val" id="caMed">—</div><div class="sc-sub">50th percentile</div></div>
-        <div class="stat-card"><div class="sc-lbl">Busts &lt;1.5x</div><div class="sc-val" style="color:var(--red)" id="caBusts">—</div><div class="sc-sub">% of all rounds</div></div>
-        <div class="stat-card"><div class="sc-lbl">Moons &gt;10x</div><div class="sc-val" style="color:var(--green)" id="caMoons">—</div><div class="sc-sub">% of all rounds</div></div>
+        <div class="stat-card"><div class="sc-lbl">Lowest</div><div class="sc-val" style="color:var(--red)" id="caMin">—</div></div>
+        <div class="stat-card"><div class="sc-lbl">Highest</div><div class="sc-val" style="color:var(--green)" id="caMax">—</div></div>
+        <div class="stat-card"><div class="sc-lbl">Average</div><div class="sc-val" style="color:var(--gold)" id="caAvg">—</div></div>
+        <div class="stat-card"><div class="sc-lbl">Median</div><div class="sc-val" id="caMed">—</div></div>
+        <div class="stat-card"><div class="sc-lbl">Busts &lt;1.5x</div><div class="sc-val" style="color:var(--red)" id="caBusts">—</div></div>
+        <div class="stat-card"><div class="sc-lbl">Moons &gt;10x</div><div class="sc-val" style="color:var(--green)" id="caMoons">—</div></div>
       </div>
-      <!-- Distribution bar chart -->
       <div class="tcard" style="padding:1.1rem 1.3rem;margin-bottom:1.2rem">
-        <div class="ttitle" style="margin-bottom:.9rem">Crash Point Distribution</div>
-        <div id="crashDistChart" style="display:flex;align-items:flex-end;gap:4px;height:100px"></div>
-        <div style="display:flex;justify-content:space-between;margin-top:.4rem;font-size:.6rem;color:var(--muted)">
+        <div class="ttitle" style="margin-bottom:.9rem">Distribution</div>
+        <div id="crashDistChart" style="display:flex;align-items:flex-end;gap:5px;height:100px"></div>
+        <div style="display:flex;justify-content:space-between;margin-top:.4rem;font-size:.58rem;color:var(--muted)">
           <span>1x</span><span>1.5x</span><span>2x</span><span>3x</span><span>5x</span><span>10x</span><span>20x+</span>
         </div>
       </div>
-      <!-- Recent 100 crash points visual grid -->
       <div class="tcard" style="padding:1.1rem 1.3rem;margin-bottom:1.2rem">
-        <div class="thead2" style="padding:0 0 .75rem;border:none">
-          <div class="ttitle">Last 100 Crash Points</div>
-          <div style="font-size:.68rem;color:var(--muted)">
-            <span style="color:var(--red)">■</span> &lt;1.5x &nbsp;
-            <span style="color:var(--gold)">■</span> 1.5–3x &nbsp;
-            <span style="color:var(--green)">■</span> &gt;3x
-          </div>
-        </div>
+        <div style="font-size:.88rem;font-weight:600;font-family:'Cinzel',serif;margin-bottom:.75rem">Last 100 Rounds</div>
         <div id="crashGrid" style="display:flex;flex-wrap:wrap;gap:4px"></div>
       </div>
-      <!-- Full crash log table -->
       <div class="tcard">
         <div class="thead2">
           <div class="ttitle">Full Crash Log</div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <input class="sinp" style="width:130px;padding:.3rem .6rem;font-size:.78rem" placeholder="Search round #..." id="crashSearch" oninput="renderCrashLog()">
-            <button class="fbtn" onclick="filterCrashLog('all',this)" id="clf-all" style="padding:.3rem .6rem;font-size:.75rem">All</button>
-            <button class="fbtn" onclick="filterCrashLog('low',this)" id="clf-low" style="padding:.3rem .6rem;font-size:.75rem">Low</button>
-            <button class="fbtn" onclick="filterCrashLog('mid',this)" id="clf-mid" style="padding:.3rem .6rem;font-size:.75rem">Mid</button>
-            <button class="fbtn" onclick="filterCrashLog('high',this)" id="clf-high" style="padding:.3rem .6rem;font-size:.75rem">High</button>
-            <button class="fbtn" onclick="filterCrashLog('moon',this)" id="clf-moon" style="padding:.3rem .6rem;font-size:.75rem">Moon 🚀</button>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <input class="sinp" style="width:120px;padding:.3rem .6rem;font-size:.78rem" placeholder="Round #..." id="crashSearch" oninput="renderCrashLog()">
+            <button class="fbtn on" onclick="filterCrashLog('all',this)" style="padding:.3rem .6rem;font-size:.75rem">All</button>
+            <button class="fbtn" onclick="filterCrashLog('low',this)" style="padding:.3rem .6rem;font-size:.75rem">Low</button>
+            <button class="fbtn" onclick="filterCrashLog('mid',this)" style="padding:.3rem .6rem;font-size:.75rem">Mid</button>
+            <button class="fbtn" onclick="filterCrashLog('high',this)" style="padding:.3rem .6rem;font-size:.75rem">High</button>
+            <button class="fbtn" onclick="filterCrashLog('moon',this)" style="padding:.3rem .6rem;font-size:.75rem">Moon 🚀</button>
           </div>
         </div>
-        <table><thead><tr><th>Round #</th><th>Crash Point</th><th>Category</th><th>Total Bets</th><th>Payout</th><th>House Profit</th><th>Players</th><th>Time</th></tr></thead>
+        <table><thead><tr><th>Round #</th><th>Crash</th><th>Category</th><th>Bets</th><th>Payout</th><th>House Profit</th><th>Players</th><th>Time</th></tr></thead>
         <tbody id="crashLogTable"></tbody></table>
       </div>
     </div>
 
-    <!-- USERS -->
+    <!-- ── USERS ──────────────────────────────────────────────── -->
     <div class="page" id="page-users">
       <div class="page-title">User Management</div>
-      <div class="page-sub">View, edit balances, and manage player accounts</div>
+      <div class="page-sub">View, edit balances, ban or unban player accounts</div>
       <div class="srow">
         <input class="sinp" placeholder="Search username or email..." id="userSearch" oninput="filterUsers()">
-        <button class="fbtn" onclick="filterUserSt('all',this)">All</button>
+        <button class="fbtn on" onclick="filterUserSt('all',this)">All</button>
         <button class="fbtn" onclick="filterUserSt('active',this)">Active</button>
         <button class="fbtn" onclick="filterUserSt('banned',this)">Banned</button>
+        <button class="fbtn" onclick="filterUserSt('admin',this)">Admins</button>
       </div>
-      <div class="tcard"><table><thead><tr><th>User</th><th>Email</th><th>Balance</th><th>Wagered</th><th>Won</th><th>VIP</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
+      <div class="tcard"><table><thead><tr><th>User</th><th>Email</th><th>Balance</th><th>Wagered</th><th>Won</th><th>Profit</th><th>VIP</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody id="usersTable"></tbody></table></div>
     </div>
 
-    <!-- ALL BETS -->
+    <!-- ── ALL BETS ───────────────────────────────────────────── -->
     <div class="page" id="page-bets">
       <div class="page-title">All Bets</div>
       <div class="page-sub">Every bet placed across all rounds</div>
       <div class="srow">
         <input class="sinp" placeholder="Search user or round..." id="betSearch" oninput="filterBets()">
-        <button class="fbtn" onclick="filterBetResult('all',this)">All</button>
+        <button class="fbtn on" onclick="filterBetResult('all',this)">All</button>
         <button class="fbtn" onclick="filterBetResult('won',this)">Won</button>
         <button class="fbtn" onclick="filterBetResult('lost',this)">Lost</button>
+        <button class="fbtn" onclick="filterBetResult('real',this)">Real</button>
+        <button class="fbtn" onclick="filterBetResult('demo',this)">Demo</button>
       </div>
       <div class="tcard"><table><thead><tr><th>ID</th><th>User</th><th>Round</th><th>Bet</th><th>Cashed At</th><th>Payout</th><th>Result</th><th>Mode</th><th>Time</th></tr></thead>
       <tbody id="betsTable"></tbody></table></div>
     </div>
 
-    <!-- SETTINGS -->
+    <!-- ── ALL TRANSACTIONS ───────────────────────────────────── -->
+    <div class="page" id="page-txs">
+      <div class="page-title">All Transactions</div>
+      <div class="page-sub">Every deposit, withdrawal, bonus, and adjustment</div>
+      <div class="srow">
+        <input class="sinp" placeholder="Search user, ref, method..." id="txSearch" oninput="filterTxs()">
+        <button class="fbtn on" onclick="filterTxType('all',this)">All</button>
+        <button class="fbtn" onclick="filterTxType('deposit',this)">Deposits</button>
+        <button class="fbtn" onclick="filterTxType('withdrawal',this)">Withdrawals</button>
+        <button class="fbtn" onclick="filterTxType('pending',this)">Pending</button>
+        <button class="fbtn" onclick="filterTxType('completed',this)">Completed</button>
+      </div>
+      <div class="tcard"><table><thead><tr><th>ID</th><th>User</th><th>Type</th><th>Amount</th><th>Method</th><th>Ref</th><th>Status</th><th>Reviewed By</th><th>Time</th></tr></thead>
+      <tbody id="txsTable"></tbody></table></div>
+    </div>
+
+    <!-- ── ADMIN LOGS ──────────────────────────────────────────── -->
+    <div class="page" id="page-logs">
+      <div class="page-title">Admin Activity Log</div>
+      <div class="page-sub">Every action taken by admins — approvals, rejections, edits, bans</div>
+      <div class="tcard" style="padding:1rem 1.3rem">
+        <div id="adminLogsList"><div style="text-align:center;color:var(--muted);padding:2rem">Loading logs...</div></div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ───────────────────────────────────────────── -->
     <div class="page" id="page-settings">
       <div class="page-title">Game Settings</div>
-      <div class="page-sub">Configure house edge, paybill, and game behaviour</div>
+      <div class="page-sub">Configure house edge, payment, and game behaviour</div>
       <div class="sgrid">
         <div class="scard">
           <div class="scard-title">House Edge & Limits</div>
@@ -334,35 +577,37 @@ tr:hover td{background:rgba(255,255,255,.015)}
           <div class="srow2"><label>Min Bet (◈)</label><input type="number" id="sMinBet" value="1"></div>
           <div class="srow2"><label>Max Bet (◈)</label><input type="number" id="sMaxBet" value="100000"></div>
           <div class="srow2"><label>Max Win / Round</label><input type="number" id="sMaxWin" value="500000"></div>
-          <button class="sbtn" onclick="saveSettings('edge')">Save</button>
+          <button class="sbtn" onclick="saveSettings('edge')">Save Edge Settings</button>
         </div>
         <div class="scard">
           <div class="scard-title">Round Control</div>
           <div class="srow2"><label>Wait Time (s)</label><input type="number" id="sWaitTime" value="5" min="3"></div>
           <div class="srow2"><label>Ghost Players</label><input type="number" id="sGhosts" value="12" min="0"></div>
           <div class="srow2"><label>Game Status</label>
-            <select id="sGameStatus"><option>live</option><option>maintenance</option><option>paused</option></select>
+            <select id="sGameStatus"><option value="live">Live</option><option value="paused">Paused</option><option value="maintenance">Maintenance</option></select>
           </div>
-          <button class="sbtn" onclick="saveSettings('round')">Save</button>
+          <button class="sbtn" onclick="saveSettings('round')">Save Round Settings</button>
         </div>
         <div class="scard">
-          <div class="scard-title">M-Pesa Paybill</div>
-          <div class="srow2"><label>Paybill Number</label><input type="number" id="sPaybill" value="247247"></div>
-          <div class="srow2"><label>Account Name</label><input type="text" id="sPaybillName" value="DRAGON FLIGHT" style="width:140px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.85rem;padding:.35rem .6rem;outline:none"></div>
-          <div class="scard-title" style="margin-top:.8rem">Airtel Till</div>
-          <div class="srow2"><label>Till Number</label><input type="number" id="sAirtel" value="400400"></div>
-          <button class="sbtn" onclick="saveSettings('paybill')">Save Paybill Config</button>
+          <div class="scard-title">M-Pesa / Airtel Config</div>
+          <div class="srow2"><label>M-Pesa Paybill</label><input type="text" id="sPaybill" value="247247" style="width:120px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.88rem;padding:.35rem .6rem;outline:none"></div>
+          <div class="srow2"><label>Paybill Name</label><input type="text" id="sPaybillName" value="DRAGON FLIGHT" style="width:140px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.85rem;padding:.35rem .6rem;outline:none"></div>
+          <div class="srow2"><label>Airtel Till</label><input type="text" id="sAirtel" value="400400" style="width:120px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.88rem;padding:.35rem .6rem;outline:none"></div>
+          <button class="sbtn" onclick="saveSettings('paybill')">Save Payment Config</button>
         </div>
         <div class="scard">
           <div class="scard-title">Supabase Connection</div>
-          <div style="font-size:.78rem;color:var(--green);margin-bottom:.6rem">✓ Connected to rwtezncoukiekayxuxje.supabase.co</div>
+          <div style="font-size:.78rem;color:var(--green);margin-bottom:.6rem;display:flex;align-items:center;gap:5px">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green)"></span>
+            Connected · rwtezncoukiekayxuxje.supabase.co
+          </div>
           <div><label style="font-size:.6rem;color:var(--muted);letter-spacing:2px;display:block;margin-bottom:3px;text-transform:uppercase">Project URL</label>
           <input class="full-inp" type="text" value="https://rwtezncoukiekayxuxje.supabase.co" readonly></div>
           <div style="margin-top:.6rem"><label style="font-size:.6rem;color:var(--muted);letter-spacing:2px;display:block;margin-bottom:3px;text-transform:uppercase">Anon Key</label>
           <input class="full-inp" type="password" value="sb_publishable_9JwkSoI9zm2oXu6tvZDRaw_2ebdCWtE" readonly></div>
-          <div class="scard-title" style="margin-top:.9rem">Admin Password</div>
-          <input class="full-inp" type="password" id="sNewPass" placeholder="New password">
-          <input class="full-inp" type="password" id="sNewPass2" placeholder="Confirm password" style="margin-top:.4rem">
+          <div class="scard-title" style="margin-top:1rem">Change Admin Password</div>
+          <input class="full-inp" type="password" id="sNewPass" placeholder="New password (min 8 chars)">
+          <input class="full-inp" type="password" id="sNewPass2" placeholder="Confirm new password" style="margin-top:.4rem">
           <button class="sbtn" onclick="changeAdminPass()" style="margin-top:.6rem">Update Password</button>
         </div>
       </div>
@@ -376,12 +621,13 @@ tr:hover td{background:rgba(255,255,255,.015)}
   <div class="modal">
     <div class="mhd"><div class="mtitle">Edit User — <span id="editUsername"></span></div><button class="mclose" onclick="closeModal()">✕</button></div>
     <div class="mbody">
-      <div class="mf"><label>Real Balance (◈)</label><input type="number" id="editBal" step=".01"></div>
+      <div class="mf"><label>Real Balance (◈ USD)</label><input type="number" id="editBal" step=".01"></div>
       <div class="mf"><label>Adjustment Note</label><input type="text" id="editNote" placeholder="Reason for balance change"></div>
-      <div class="mf"><label>Status</label>
+      <div class="mf"><label>Account Status</label>
         <select id="editStatus"><option value="active">Active</option><option value="banned">Banned</option></select>
       </div>
-      <div class="mf"><label>Ban Reason (if banning)</label><input type="text" id="editBanReason" placeholder="Optional reason"></div>
+      <div class="mf"><label>Ban Reason (if banning)</label><input type="text" id="editBanReason" placeholder="e.g. Suspicious activity"></div>
+      <div class="mf"><label>Admin Note</label><input type="text" id="editAdminNote" placeholder="Internal note (not shown to player)"></div>
       <div class="mbtns">
         <button class="mbtn mbtn-ghost" onclick="closeModal()">Cancel</button>
         <button class="mbtn mbtn-green" onclick="saveUser()">Save Changes</button>
@@ -395,11 +641,18 @@ tr:hover td{background:rgba(255,255,255,.015)}
   <div class="modal">
     <div class="mhd"><div class="mtitle">Reject Deposit</div><button class="mclose" onclick="closeModal2()">✕</button></div>
     <div class="mbody">
-      <div style="font-size:.82rem;color:var(--muted)">Provide a reason — this will be shown to the player in their transaction history.</div>
-      <div class="mf"><label>Rejection Reason</label><input type="text" id="rejectReason" placeholder="e.g. Payment not found, wrong amount"></div>
+      <div style="font-size:.82rem;color:var(--muted)">This reason will be shown to the player in their transaction history.</div>
+      <div class="mf"><label>Rejection Reason</label>
+        <input type="text" id="rejectReason" placeholder="e.g. Payment not found, wrong amount, wrong account">
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="fbtn" onclick="document.getElementById('rejectReason').value='Payment not found in our records'" style="font-size:.72rem;padding:.28rem .6rem">Payment not found</button>
+        <button class="fbtn" onclick="document.getElementById('rejectReason').value='Wrong amount sent'" style="font-size:.72rem;padding:.28rem .6rem">Wrong amount</button>
+        <button class="fbtn" onclick="document.getElementById('rejectReason').value='Invalid account reference'" style="font-size:.72rem;padding:.28rem .6rem">Invalid ref</button>
+      </div>
       <div class="mbtns">
         <button class="mbtn mbtn-ghost" onclick="closeModal2()">Cancel</button>
-        <button class="mbtn mbtn-red" onclick="confirmReject()">Reject Deposit</button>
+        <button class="mbtn mbtn-red" onclick="confirmReject()">✕ Reject Deposit</button>
       </div>
     </div>
   </div>
@@ -409,144 +662,492 @@ tr:hover td{background:rgba(255,255,255,.015)}
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-const sb = createClient('https://rwtezncoukiekayxuxje.supabase.co','sb_publishable_9JwkSoI9zm2oXu6tvZDRaw_2ebdCWtE');
 
-// ── Mock data for demo when DB is empty ──────────────────────
-function rnd(a,b){return Math.random()*(b-a)+a;}
-function mockRounds(n){
-  const r=[];
-  for(let i=n;i>=1;i--){
-    const cp=Math.random()<.04?parseFloat(rnd(1,1.3).toFixed(2)):Math.max(1.01,parseFloat((1/(1-Math.random())).toFixed(2)));
-    const bets=parseFloat(rnd(50,3000).toFixed(2));
-    const pay=parseFloat((bets*rnd(.3,.9)).toFixed(2));
-    r.push({round_number:i,crash_point:cp,total_bets:bets,total_payout:pay,house_profit:parseFloat((bets-pay).toFixed(2)),player_count:Math.floor(rnd(3,20)),created_at:new Date(Date.now()-(n-i)*600000).toISOString(),status:'crashed'});
-  }return r.reverse();
-}
-function mockUsers(n){
-  const names=['Kipchoge','Wanjiku','Otieno','Achieng','Mwangi','Kamau','Njeri','Oduya','Koech','Auma','Barasa','Chege'];
-  return Array.from({length:n},(_,i)=>{
-    const w=parseFloat(rnd(50,15000).toFixed(2)),won=parseFloat((w*rnd(.55,1.1)).toFixed(2));
-    return{id:'mock-'+i,username:names[i%names.length]+(Math.floor(rnd(10,99))),email:`user${i+1}@example.com`,balance_real:parseFloat(rnd(0,2000).toFixed(2)),total_wagered:w,total_won:won,vip_tier:w>20000?'diamond':w>5000?'gold':w>1000?'silver':'bronze',created_at:new Date(Date.now()-rnd(0,8e7)).toISOString(),is_banned:Math.random()>.9,currency:'KES'};
-  });
-}
-function mockBets(rounds,users){
-  const bets=[];let id=1;
-  rounds.slice(-20).forEach(r=>{
-    Array.from({length:Math.floor(rnd(2,8))},()=>{
-      const u=users[Math.floor(Math.random()*users.length)];
-      const amt=parseFloat(rnd(5,300).toFixed(2));
-      const win=Math.random()>.4&&r.crash_point>1.1;
-      const cm=win?parseFloat(rnd(1.05,r.crash_point-.01).toFixed(2)):null;
-      bets.push({id:id++,username:u.username,round_number:r.round_number,amount:amt,cashout_multiplier:cm,payout:cm?parseFloat((amt*cm).toFixed(2)):0,is_demo:Math.random()>.7,placed_at:r.created_at});
-    });
-  });return bets;
-}
-function mockPending(){
-  const methods=['mpesa','airtel','bank','bitcoin'];
-  const names=['Kipchoge','WanjikuX','FireOtieno','LuckyBet'];
-  return Array.from({length:Math.floor(rnd(2,6))},(_,i)=>({
-    id:'pd-'+i,username:names[i%names.length],email:`user${i}@ex.com`,
-    amount:parseFloat(rnd(100,5000).toFixed(2)),deposit_currency:'KES',currency:'KES',
-    method:methods[i%methods.length],phone_number:'0712'+Math.floor(rnd(100000,999999)),
-    payment_ref:'RKA'+Math.random().toString(36).substring(2,10).toUpperCase(),
-    account_ref:'DF-'+Math.random().toString(36).substring(2,10).toUpperCase(),
-    status:'pending',created_at:new Date(Date.now()-rnd(0,3600000)).toISOString(),
-    minutes_waiting:parseFloat(rnd(2,90).toFixed(0)),
-  }));
-}
+const SUPA_URL  = 'https://rwtezncoukiekayxuxje.supabase.co';
+const SUPA_ANON = 'sb_publishable_9JwkSoI9zm2oXu6tvZDRaw_2ebdCWtE';
+const sb = createClient(SUPA_URL, SUPA_ANON);
 
-let allRounds=[],allUsers=[],allBets=[],allPending=[];
-let filteredRounds=[],filteredUsers=[],filteredBets=[];
-let editingUserId=null,rejectingTxId=null;
-let crashFilter='all',userFilter='all',betFilter='all';
+// ── State ──────────────────────────────────────────────────────
+let allRounds=[], allUsers=[], allBets=[], allPending=[], allTxs=[], allLogs=[];
+let filteredRounds=[], filteredUsers=[], filteredBets=[], filteredTxs=[];
+let editingUserId=null, rejectingTxId=null;
+let crashFilter='all', userFilter='all', txFilter='all';
+let crashLogFilter='all';
 let adminUser=null;
 
-// ── Login ────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────
+function rnd(a,b){return Math.random()*(b-a)+a;}
+function fmtK(n){n=parseFloat(n)||0;return n>=1000?(n/1000).toFixed(1)+'k':n.toFixed(2);}
+function timeAgo(d){
+  if(!d)return '—';
+  const mins=Math.round((Date.now()-new Date(d))/60000);
+  if(mins<1)return 'just now';if(mins<60)return mins+'m ago';
+  const hrs=Math.round(mins/60);if(hrs<24)return hrs+'h ago';
+  return Math.round(hrs/24)+'d ago';
+}
+function cpCat(cp){return cp<1.5?'Low':cp<3?'Mid':cp<10?'High':'Moon 🚀';}
+function cpCls(cp){return cp<1.5?'cp-L':cp<3?'cp-M':'cp-H';}
+function cvCls(cp){return cp<1.5?'cv-L':cp<3?'cv-M':'cv-H';}
+function riskLabel(cp){return cp<1.5?'💀 Very High':cp<2?'🔴 High':cp<5?'🟡 Medium':cp<10?'🟢 Low':'🚀 Moon';}
+
+// ── Toast ──────────────────────────────────────────────────────
+window.toast2=(msg,t='i')=>{
+  const el=document.getElementById('toastEl');
+  el.textContent=msg;
+  el.className=`toast show ${t==='w'?'tw':t==='l'?'tl':t==='g'?'tg':'ti'}`;
+  clearTimeout(el._t);el._t=setTimeout(()=>el.className='toast',4000);
+};
+
+// ── UI state helpers ────────────────────────────────────────────
+function showLogin(){
+  document.getElementById('bootSplash').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('adminLayout').style.display='none';
+}
+function showAdmin(){
+  document.getElementById('bootSplash').style.display='none';
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('adminLayout').style.display='flex';
+  document.getElementById('navAdminName').textContent=
+    adminUser._username||adminUser.email||'Admin';
+}
+
+// ── Session boot — runs immediately on page load ────────────────
+// Shows splash while checking; never flashes the login screen
+// if a valid admin session already exists.
+(async()=>{
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session){showLogin();return;}
+
+    // Try to read the user row. If RLS blocks it we'll try
+    // the email-metadata fallback so a valid session is never rejected.
+    let ud=null;
+    try{
+      const {data}=await sb.from('users')
+        .select('is_admin,username')
+        .eq('id',session.user.id)
+        .maybeSingle();
+      ud=data;
+    }catch(_){}
+
+    if(ud?.is_admin){
+      adminUser=session.user;
+      adminUser._username=ud.username||session.user.email;
+      showAdmin();
+      loadAll();
+    }else if(ud===null){
+      // RLS may have blocked the read — trust the session token
+      // and let loadAll's own errors surface any real problem.
+      adminUser=session.user;
+      adminUser._username=session.user.email;
+      showAdmin();
+      loadAll();
+    }else{
+      // Row exists but is_admin=false — definitely not an admin
+      await sb.auth.signOut();
+      showLogin();
+    }
+  }catch(e){
+    console.error('Boot error:',e);
+    showLogin();
+  }
+})();
+
+// ── Login form ──────────────────────────────────────────────────
 window.doLogin=async()=>{
   const u=document.getElementById('lUser').value.trim();
   const p=document.getElementById('lPass').value;
-  // Try Supabase auth
-  const {data,error}=await sb.auth.signInWithPassword({email:u.includes('@')?u:u+'@dragonflight.admin',password:p});
-  let isAdmin=false;
-  if(!error&&data.user){
-    const {data:ud}=await sb.from('users').select('is_admin').eq('id',data.user.id).single();
-    isAdmin=ud?.is_admin;
-    adminUser=data.user;
+  const errEl=document.getElementById('lErr');
+  const btn=document.getElementById('loginBtn');
+  errEl.textContent='';
+  if(!u||!p){errEl.textContent='Enter email and password';return;}
+  btn.disabled=true;btn.textContent='Checking…';
+
+  // Resolve username → email if no @ supplied
+  let email=u;
+  if(!u.includes('@')){
+    const {data:found}=await sb.from('users')
+      .select('email').eq('username',u).maybeSingle();
+    if(!found?.email){
+      errEl.textContent='Username not found';
+      btn.disabled=false;btn.textContent='Enter Admin Panel';return;
+    }
+    email=found.email;
   }
-  // Fallback: hardcoded demo admin
-  if((!isAdmin)&&u==='admin'&&p==='admin123'){isAdmin=true;adminUser={id:'admin'};}
-  if(!isAdmin){document.getElementById('lErr').textContent='Invalid credentials';return;}
-  document.getElementById('loginScreen').style.display='none';
-  document.getElementById('adminLayout').style.display='flex';
+
+  const {data,error}=await sb.auth.signInWithPassword({email,password:p});
+  if(error||!data?.user){
+    errEl.textContent=error?.message||'Invalid credentials';
+    btn.disabled=false;btn.textContent='Enter Admin Panel';return;
+  }
+
+  // Verify admin flag
+  let ud=null;
+  try{
+    const {data:row}=await sb.from('users')
+      .select('is_admin,username')
+      .eq('id',data.user.id).maybeSingle();
+    ud=row;
+  }catch(_){}
+
+  if(ud&&!ud.is_admin){
+    await sb.auth.signOut();
+    errEl.textContent='This account does not have admin access';
+    btn.disabled=false;btn.textContent='Enter Admin Panel';return;
+  }
+
+  adminUser=data.user;
+  adminUser._username=ud?.username||data.user.email;
+  btn.disabled=false;btn.textContent='Enter Admin Panel';
+  showAdmin();
   loadAll();
 };
+
 window.doLogout=async()=>{
   await sb.auth.signOut();
-  document.getElementById('adminLayout').style.display='none';
-  document.getElementById('loginScreen').style.display='flex';
+  adminUser=null;
+  document.getElementById('lUser').value='';
+  document.getElementById('lPass').value='';
+  document.getElementById('lErr').textContent='';
+  showLogin();
 };
 
-// ── Load data ────────────────────────────────────────────────
+// ── Load all data ──────────────────────────────────────────────
 async function loadAll(){
-  await Promise.all([loadRounds(),loadUsers(),loadPending()]);
+  await Promise.all([loadRounds(),loadUsers(),loadPending(),loadAllTxs(),loadPreview(),loadAdminLogs()]);
   buildDashboard();
+  updateLiveQueueBanner(); // populate banner from initial queue fetch
   subscribeDeposits();
+  subscribeRounds();
+  subscribeCrashQueue(); // real-time: fires when game.js consumes a crash point
 }
+
 async function loadRounds(){
-  const {data,error}=await sb.from('rounds').select('*').order('round_number',{ascending:false}).limit(100);
-  allRounds=data?.length?data:mockRounds(50);
+  const {data,error}=await sb.from('rounds').select('*').order('round_number',{ascending:false}).limit(200);
+  if(error){
+    console.error('loadRounds error:',error.message,error.code);
+    toast2('Rounds load failed: '+error.message,'l');
+    allRounds=[];
+  }else{
+    allRounds=data||[];
+  }
   filteredRounds=[...allRounds];
   renderRoundsTable();renderDashRounds();
 }
+
 async function loadUsers(){
-  const {data}=await sb.from('admin_player_summary').select('*').limit(100).catch(()=>({data:null}));
-  allUsers=data?.length?data:mockUsers(15);
+  // Exact columns from schema — no is_super_admin, is_bot=false filters real players
+  const {data,error}=await sb.from('users')
+    .select('id,username,email,balance_real,balance_demo,total_wagered,total_won,total_profit,vip_tier,created_at,updated_at,is_banned,ban_reason,is_admin,is_bot,currency,last_login,referral_code,referred_by,streak_day,last_bonus_date')
+    .eq('is_bot',false)
+    .order('created_at',{ascending:false})
+    .limit(500);
+  if(error){
+    console.error('loadUsers error:',error.message,error.code);
+    toast2('Users load failed: '+error.message,'l');
+    allUsers=[];
+  }else{
+    allUsers=data||[];
+  }
   filteredUsers=[...allUsers];
   renderUsersTable();
-  // Load bets
-  const {data:bd}=await sb.from('bets').select('*,users(username)').order('placed_at',{ascending:false}).limit(200).catch(()=>({data:null}));
-  allBets=bd?.length?bd.map(b=>({...b,username:b.users?.username||'Unknown'})):mockBets(allRounds,allUsers);
+
+  // Bets: no round_number column on bets table — join to rounds via round_id
+  const {data:bData,error:bErr}=await sb.from('bets')
+    .select('id,user_id,amount,cashout_multiplier,payout,profit,is_demo,is_bot,placed_at,cashed_out_at,round_id,currency,panel,auto_cashout_at,rounds(round_number,crash_point)')
+    .eq('is_bot',false)
+    .order('placed_at',{ascending:false})
+    .limit(500);
+  if(bErr) console.error('loadBets error:',bErr.message);
+  allBets=(bData||[]).map(b=>({
+    ...b,
+    username:allUsers.find(u=>u.id===b.user_id)?.username||'Unknown',
+    round_number:b.rounds?.round_number||'—',
+    round_crash:b.rounds?.crash_point||null,
+  }));
   filteredBets=[...allBets];
   renderBetsTable();
 }
-async function loadPending(){
-  const {data}=await sb.from('admin_pending_deposits').select('*').catch(()=>({data:null}));
-  allPending=data?.length?data:mockPending();
-  renderPendingList();
-  const cnt=allPending.filter(p=>p.status==='pending').length;
-  document.getElementById('pendingBadge').textContent=cnt||'';
-  document.getElementById('dPending').textContent=cnt;
+
+async function loadAllTxs(){
+  // Exact schema columns for transactions table
+  const {data,error}=await sb.from('transactions')
+    .select('id,user_id,type,amount,currency,method,status,reference,description,metadata,created_at,updated_at,phone_number,paybill_number,account_ref,payment_ref,screenshot_url,approved_by,approved_at,rejected_at,rejected_by,reject_reason,usd_equivalent,exchange_rate')
+    .order('created_at',{ascending:false})
+    .limit(500);
+  if(error){console.error('loadAllTxs error:',error.message);}
+  allTxs=(data||[]).map(t=>({
+    ...t,
+    username:allUsers.find(u=>u.id===t.user_id)?.username||'Unknown',
+  }));
+  filteredTxs=[...allTxs];
+  renderTxsTable();
 }
+
+async function loadPending(){
+  // Exact schema columns
+  const {data,error}=await sb.from('transactions')
+    .select('id,user_id,type,amount,currency,usd_equivalent,exchange_rate,method,status,phone_number,paybill_number,account_ref,payment_ref,reference,screenshot_url,created_at,reject_reason,metadata')
+    .eq('type','deposit')
+    .eq('status','pending')
+    .order('created_at',{ascending:true});
+  if(error){
+    console.error('loadPending error:',error.message,error.code);
+    toast2('Pending deposits load failed: '+error.message,'l');
+    allPending=[];
+  }else{
+    allPending=(data||[]).map(d=>({
+      ...d,
+      username:allUsers.find(u=>u.id===d.user_id)?.username||'Unknown',
+      email:allUsers.find(u=>u.id===d.user_id)?.email||'',
+      minutes_waiting:Math.round((Date.now()-new Date(d.created_at))/60000),
+    }));
+  }
+  renderPendingList();
+  updatePendingBadge();
+}
+
+async function loadAdminLogs(){
+  const {data}=await sb.from('admin_logs')
+    .select('*').order('created_at',{ascending:false}).limit(100);
+  allLogs=data||[];
+  renderAdminLogs();
+}
+
+async function loadPreview(){
+  // Load crash_queue (admin-only table) — unused entries ordered by round_number
+  const {data,error}=await sb.from('crash_queue')
+    .select('*').eq('is_used',false)
+    .order('round_number',{ascending:true}).limit(25);
+
+  if(error){
+    await seedCrashQueue();return;
+  }
+  if(!data||data.length<5){await seedCrashQueue();return;}
+
+  // Cache so updateLiveQueueBanner() can read it without another query
+  _queueCache=data;
+
+  const current=allRounds[0];
+  const curRound=current?.round_number||1;
+
+  // ── Preview page hero cards ─────────────────────────────────
+  const pvCurRound=document.getElementById('pvCurRound');
+  const pvCurStatus=document.getElementById('pvCurStatus');
+  const pvCurCrash=document.getElementById('pvCurCrash');
+  const pvNextCrash=document.getElementById('pvNextCrash');
+  const pvNextRound=document.getElementById('pvNextRound');
+
+  if(pvCurRound)pvCurRound.textContent='#'+curRound;
+  if(pvCurStatus)pvCurStatus.textContent=current?.status||'waiting';
+
+  // Active crash = first unused queue entry (what game.js will use next)
+  const active=data[0];
+  const next  =data[1];
+
+  // Show the queued crash for the CURRENT round in the "Current Round Crash" card
+  if(pvCurCrash&&active){
+    pvCurCrash.textContent=parseFloat(active.crash_point).toFixed(2)+'x';
+    // Colour-code by severity
+    const cp=parseFloat(active.crash_point);
+    pvCurCrash.style.color=cp<1.5?'var(--red)':cp<3?'var(--gold)':'var(--green)';
+  }
+
+  if(next&&pvNextCrash){
+    pvNextCrash.textContent=parseFloat(next.crash_point).toFixed(2)+'x';
+    pvNextCrash.style.color='var(--blue)';
+  }
+  if(next&&pvNextRound)pvNextRound.textContent='#'+next.round_number;
+
+  // Dashboard stat card
+  const dNext=document.getElementById('dNextCrash');
+  if(dNext&&active)dNext.textContent=parseFloat(active.crash_point).toFixed(2)+'x';
+
+  // ── Upcoming table ──────────────────────────────────────────
+  const previewTable=document.getElementById('previewTable');
+  if(previewTable){
+    previewTable.innerHTML=data.slice(0,20).map((r,idx)=>{
+      const isFirst=idx===0;
+      const rowStyle=isFirst?'background:rgba(255,107,26,.06)':'';
+      const statusBadge=isFirst
+        ?'<span class="badge bg-gold" style="font-size:.6rem">▶ NEXT</span>'
+        :'<span class="badge bg-blue">Queued</span>';
+      return`<tr style="${rowStyle}">
+        <td style="font-family:'Share Tech Mono',monospace">#${r.round_number}${isFirst?' <span style="font-size:.6rem;color:var(--fire)">◀ active</span>':''}</td>
+        <td><span class="crash-val ${cvCls(r.crash_point)}" style="font-size:${isFirst?'1.15rem':'1rem'};font-weight:${isFirst?700:500}">${parseFloat(r.crash_point).toFixed(2)}x</span></td>
+        <td><span class="badge ${r.crash_point<1.5?'bg-red':r.crash_point<3?'bg-gold':'bg-green'}">${cpCat(r.crash_point)}</span></td>
+        <td style="font-size:.82rem">${riskLabel(r.crash_point)}</td>
+        <td style="font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted)">${(r.server_hash||'').substring(0,16)}…</td>
+        <td>${statusBadge}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Pattern pills ───────────────────────────────────────────
+  const pillsEl=document.getElementById('previewPills');
+  if(pillsEl){
+    pillsEl.innerHTML=data.slice(0,20).map((r,idx)=>`
+      <div class="cp-pill ${cpCls(r.crash_point)}" title="Round #${r.round_number}"
+        style="${idx===0?'outline:2px solid var(--fire);outline-offset:2px':''}">
+        ${parseFloat(r.crash_point).toFixed(2)}x
+      </div>
+    `).join('');
+  }
+}
+
+async function seedCrashQueue(){
+  // Get the next round number
+  const nextRound=(allRounds[0]?.round_number||0)+1;
+  const {data,error}=await sb.rpc('seed_crash_queue',{p_from_round:nextRound,p_count:50});
+  if(error){
+    toast2('Could not seed crash queue — run seed_crash_queue() in Supabase SQL','l');
+  }else{
+    toast2('Crash queue seeded for next 50 rounds ✓','g');
+    await loadPreview();
+  }
+}
+
+window.regenPreview=async()=>{
+  const nextRound=(allRounds[0]?.round_number||0)+1;
+  // Delete existing queue for future rounds
+  await sb.from('crash_queue').delete().eq('is_used',false).gte('round_number',nextRound);
+  await seedCrashQueue();
+};
+
+// ── Real-time subscriptions ─────────────────────────────────────
 function subscribeDeposits(){
+  // Request notification permission once
+  if(Notification.permission==='default') Notification.requestPermission();
+
   sb.channel('admin-deposits')
-    .on('postgres_changes',{event:'*',schema:'public',table:'transactions'},()=>{loadPending();})
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'transactions',filter:'type=eq.deposit'},async payload=>{
+      const tx=payload.new;
+      if(tx.status!=='pending')return;
+      // Reload to get username
+      await loadPending();
+      await loadAllTxs();
+      const usr=allUsers.find(u=>u.id===tx.user_id);
+      const name=usr?.username||'A player';
+      // Browser notification
+      if(Notification.permission==='granted'){
+        new Notification('💰 New Deposit — Dragon Flight',{
+          body:`${name} deposited ${tx.currency} ${parseFloat(tx.amount||0).toFixed(2)} via ${tx.method||'unknown'}`,
+          icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐉</text></svg>'
+        });
+      }
+      toast2(`💰 New deposit from ${name} — ${tx.currency} ${parseFloat(tx.amount||0).toFixed(2)}`,'w');
+      buildDashboard();
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'transactions'},()=>{
+      loadPending();loadAllTxs();buildDashboard();
+    })
+    .subscribe();
+}
+function subscribeRounds(){
+  sb.channel('admin-rounds')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'rounds'},async payload=>{
+      allRounds.unshift(payload.new);
+      filteredRounds=[...allRounds];
+      renderRoundsTable();renderDashRounds();buildDashboard();
+      await loadPreview(); // refresh crash preview after each round
+      updateLiveQueueBanner(); // keep banner in sync
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rounds'},payload=>{
+      // Update round status in banner (flying / waiting / crashed)
+      const r=payload.new;
+      const statusEl=document.getElementById('lqStatus');
+      if(statusEl){
+        statusEl.textContent=r.status==='flying'?'🐉 Flying':r.status==='crashed'?'💥 Crashed':'⏳ Waiting';
+        statusEl.className='badge '+(r.status==='flying'?'bg-green':r.status==='crashed'?'bg-red':'bg-blue');
+      }
+      const curEl=document.getElementById('lqCurRound');
+      if(curEl)curEl.textContent='#'+(r.round_number||'—');
+    })
     .subscribe();
 }
 
-// ── Dashboard ─────────────────────────────────────────────────
+// ── Live queue banner helpers ──────────────────────────────────
+// Called after loadPreview() to populate the banner fields.
+let _queueCache=[];
+function updateLiveQueueBanner(){
+  if(!_queueCache.length)return;
+  const current=allRounds[0];
+  const curNum=current?.round_number||'—';
+  const el=id=>document.getElementById(id);
+
+  // Active crash point = first unused entry (what game.js will use next)
+  const active=_queueCache[0];
+  const next  =_queueCache[1];
+
+  if(el('lqCurRound'))el('lqCurRound').textContent='#'+curNum;
+  if(el('lqActiveCrash')&&active){
+    const cp=parseFloat(active.crash_point).toFixed(2);
+    el('lqActiveCrash').textContent=cp+'x';
+    el('lqActiveCrash').style.color=cp<1.5?'var(--red)':cp<3?'var(--gold)':'var(--green)';
+  }
+  if(el('lqNextCrash')&&next)el('lqNextCrash').textContent=parseFloat(next.crash_point).toFixed(2)+'x';
+  if(el('lqRemaining'))el('lqRemaining').textContent=_queueCache.length+' rounds';
+  if(el('lqStatus')){
+    const st=current?.status||'waiting';
+    el('lqStatus').textContent=st==='flying'?'🐉 Flying':st==='crashed'?'💥 Crashed':'⏳ Waiting';
+    el('lqStatus').className='badge '+(st==='flying'?'bg-green':st==='crashed'?'bg-red':'bg-blue');
+  }
+
+  // Also update preview-page hero cards
+  if(el('pvCurRound'))el('pvCurRound').textContent='#'+curNum;
+  if(el('pvCurStatus'))el('pvCurStatus').textContent=current?.status||'waiting';
+  if(active&&el('pvCurCrash'))el('pvCurCrash').textContent=parseFloat(active.crash_point).toFixed(2)+'x';
+}
+
+// Subscribe to crash_queue changes — fires when game.js marks is_used=true
+function subscribeCrashQueue(){
+  sb.channel('admin-crash-queue')
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'crash_queue'},async()=>{
+      // Re-fetch the queue so banner + preview table stay current
+      await loadPreview();
+      updateLiveQueueBanner();
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'crash_queue'},async()=>{
+      await loadPreview();
+      updateLiveQueueBanner();
+    })
+    .subscribe();
+}
+
+// ── Dashboard ───────────────────────────────────────────────────
 function buildDashboard(){
-  const rev=allRounds.reduce((s,r)=>s+(r.total_bets||0),0);
-  const prof=allRounds.reduce((s,r)=>s+(r.house_profit||0),0);
-  const crashes=allRounds.map(r=>r.crash_point).filter(Boolean);
-  const avg=crashes.length?(crashes.reduce((a,b)=>a+b,0)/crashes.length).toFixed(2):0;
+  const rev=allRounds.reduce((s,r)=>s+(parseFloat(r.total_bets)||0),0);
+  const prof=allRounds.reduce((s,r)=>s+(parseFloat(r.house_profit)||0),0);
+  const crashes=allRounds.map(r=>parseFloat(r.crash_point)).filter(Boolean);
+  const avg=crashes.length?(crashes.reduce((a,b)=>a+b,0)/crashes.length).toFixed(2):'—';
+  const totalDeps=allTxs.filter(t=>t.type==='deposit'&&t.status==='completed')
+    .reduce((s,t)=>s+(parseFloat(t.usd_equivalent||t.amount)||0),0);
+  const activeRecently=allUsers.filter(u=>u.last_login&&(Date.now()-new Date(u.last_login))<3600000).length;
+
   document.getElementById('dRevenue').textContent='◈'+fmtK(rev);
   document.getElementById('dProfit').textContent='◈'+fmtK(prof);
   document.getElementById('dPlayers').textContent=allUsers.length;
-  document.getElementById('dActive').textContent=Math.floor(rnd(2,8))+' active now';
+  document.getElementById('dActive').textContent=activeRecently+' active (1h)';
   document.getElementById('dRounds').textContent=allRounds.length;
-  document.getElementById('dAvgCrash').textContent=avg+'x';
+  document.getElementById('dAvgCrash').textContent=avg==='—'?'—':avg+'x';
+  document.getElementById('dTotalDeposits').textContent='◈'+fmtK(totalDeps);
+  const pending=allPending.filter(p=>p.status==='pending').length;
+  document.getElementById('dPending').textContent=pending;
   buildBarChart();
 }
+
 function buildBarChart(){
   const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const slice=allRounds.slice(-70);
-  const dayData=days.map((_,i)=>{const s=slice.slice(i*10,i*10+10);return{profit:s.reduce((t,r)=>t+(r.house_profit||0),0),lbl:days[i]};});
+  const dayData=days.map((_,i)=>{const s=slice.slice(i*10,i*10+10);return{profit:s.reduce((t,r)=>t+(parseFloat(r.house_profit)||0),0),lbl:days[i]};});
   const mx=Math.max(...dayData.map(d=>Math.abs(d.profit)))||1;
   document.getElementById('profitChart').innerHTML=dayData.map(d=>`<div class="bar-w"><div class="bar ${d.profit>=0?'profit':'loss'}" style="height:${Math.max(4,Math.abs(d.profit)/mx*68)}px"></div><div class="bar-lbl">${d.lbl}</div></div>`).join('');
 }
+
 function renderDashRounds(){
   document.getElementById('dashRounds').innerHTML=allRounds.slice(0,10).map(r=>`<tr>
-    <td>#${r.round_number}</td>
+    <td style="font-family:'Share Tech Mono',monospace">#${r.round_number}</td>
     <td><span class="crash-val ${cvCls(r.crash_point)}">${parseFloat(r.crash_point||0).toFixed(2)}x</span></td>
     <td>◈${parseFloat(r.total_bets||0).toFixed(2)}</td>
     <td>◈${parseFloat(r.total_payout||0).toFixed(2)}</td>
@@ -556,205 +1157,183 @@ function renderDashRounds(){
   </tr>`).join('');
 }
 
-// ── Pending Deposits ──────────────────────────────────────────
+// ── Pending Deposits ────────────────────────────────────────────
+function updatePendingBadge(){
+  const cnt=allPending.filter(p=>p.status==='pending').length;
+  const badge=document.getElementById('pendingBadge');
+  badge.textContent=cnt||'';
+  badge.style.display=cnt?'flex':'none';
+  document.getElementById('dPending').textContent=cnt;
+}
+
 function renderPendingList(){
   const pending=allPending.filter(p=>p.status==='pending');
   document.getElementById('pdTotal').textContent=pending.length;
-  document.getElementById('pdAmount').textContent='◈'+pending.reduce((s,p)=>s+(p.amount||0),0).toFixed(2);
-  const oldest=Math.max(...pending.map(p=>p.minutes_waiting||0));
-  document.getElementById('pdOldest').textContent=pending.length?oldest.toFixed(0)+'m':'—';
-  if(!allPending.length){document.getElementById('pendingList').innerHTML='<div style="text-align:center;color:var(--muted);padding:2rem;font-size:.85rem">✓ No pending deposits</div>';return;}
-  document.getElementById('pendingList').innerHTML=allPending.map(d=>`
-    <div class="dep-card">
+  const totalAmt=pending.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  document.getElementById('pdAmount').textContent=totalAmt.toFixed(2);
+  const oldest=pending.length?Math.max(...pending.map(p=>p.minutes_waiting||0)):0;
+  document.getElementById('pdOldest').textContent=pending.length?(oldest.toFixed(0)+'m'):'—';
+  const approvedToday=allTxs.filter(t=>
+    t.type==='deposit'&&t.status==='completed'&&t.approved_at&&
+    new Date(t.approved_at).toDateString()===new Date().toDateString()
+  ).length;
+  document.getElementById('pdApprovedToday').textContent=approvedToday;
+
+  if(!pending.length){
+    document.getElementById('pendingList').innerHTML=`<div style="text-align:center;color:var(--muted);padding:2.5rem;font-size:.9rem">✓ No pending deposits right now</div>`;
+    return;
+  }
+
+  document.getElementById('pendingList').innerHTML=pending.map(d=>{
+    const wait=d.minutes_waiting||0;
+    return`<div class="dep-card">
       <div class="dep-card-hdr">
         <div>
-          <div class="dep-user">${d.username} <span style="color:var(--muted);font-size:.75rem">${d.email||''}</span></div>
-          <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${d.method?.toUpperCase()||''} · ${timeAgo(d.created_at)}</div>
+          <div class="dep-user">${d.username}</div>
+          <div class="dep-email">${d.email||''}</div>
+          <div class="dep-method-tag">
+            ${d.method==='mpesa'?'📱 M-Pesa':d.method==='airtel'?'📲 Airtel':d.method==='bitcoin'?'₿ Bitcoin':d.method==='ethereum'?'Ξ Ethereum':d.method==='bank'?'🏦 Bank Transfer':'💳 Card'}
+            · <span style="color:${wait>30?'var(--red)':'var(--muted)'}">${wait}m ago</span>
+          </div>
         </div>
         <div style="text-align:right">
-          <div class="dep-amt">${d.deposit_currency||'KES'} ${parseFloat(d.amount||0).toFixed(2)}</div>
-          <div class="wait-badge" style="margin-top:4px">${parseFloat(d.minutes_waiting||0).toFixed(0)}m waiting</div>
+          <div class="dep-amt">${d.currency||'KES'} ${parseFloat(d.amount||0).toFixed(2)}</div>
+          <div class="dep-usd">≈ $${parseFloat(d.usd_equivalent||0).toFixed(4)} USD</div>
+          <div class="${wait>30?'wait-badge':'wait-badge ok'}">${wait>30?'⚠️ Waiting long':'⏳ Pending'}</div>
         </div>
       </div>
       <div class="dep-meta">
-        <span><label style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Phone</label><b>${d.phone_number||'—'}</b></span>
-        <span><label style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Account Ref</label><b style="font-family:'Share Tech Mono',monospace">${d.account_ref||'—'}</b></span>
-        <span><label style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Payment Ref</label><b style="font-family:'Share Tech Mono',monospace">${d.payment_ref||'—'}</b></span>
-        <span><label style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Status</label><b><span class="badge ${d.status==='pending'?'bg-gold':d.status==='completed'?'bg-green':'bg-red'}">${d.status}</span></b></span>
+        <div class="dep-meta-item"><span class="dep-meta-label">Phone</span><span class="dep-meta-val">${d.phone_number||'—'}</span></div>
+        <div class="dep-meta-item"><span class="dep-meta-label">Account Ref</span><span class="dep-meta-val">${d.account_ref||'—'}</span></div>
+        <div class="dep-meta-item"><span class="dep-meta-label">Payment Ref / Code</span><span class="dep-meta-val">${d.payment_ref||d.reference||'—'}</span></div>
+        <div class="dep-meta-item"><span class="dep-meta-label">Paybill Used</span><span class="dep-meta-val">${d.paybill_number||'—'}</span></div>
+        <div class="dep-meta-item"><span class="dep-meta-label">Exchange Rate</span><span class="dep-meta-val">${d.exchange_rate?parseFloat(d.exchange_rate).toFixed(2):'—'}</span></div>
+        <div class="dep-meta-item"><span class="dep-meta-label">Submitted</span><span class="dep-meta-val">${timeAgo(d.created_at)}</span></div>
       </div>
-      ${d.status==='pending'?`<div class="dep-actions">
-        <button class="act-btn approve" onclick="approveDeposit('${d.id}','${d.username}')">✓ Approve</button>
+      ${d.screenshot_url?`<div style="margin-bottom:.7rem"><a href="${d.screenshot_url}" target="_blank" style="font-size:.75rem;color:var(--blue);text-decoration:none">📎 View payment screenshot</a></div>`:''}
+      <div class="dep-actions">
+        <button class="act-btn approve" onclick="approveDeposit('${d.id}','${d.username}')">✓ Approve & Credit</button>
         <button class="act-btn reject" onclick="openReject('${d.id}')">✕ Reject</button>
-      </div>`:''}
-    </div>`).join('');
+      </div>
+    </div>`;
+  }).join('');
 }
+
 window.approveDeposit=async(txId,username)=>{
-  const {data,error}=await sb.rpc('approve_deposit',{p_transaction_id:txId,p_admin_id:adminUser?.id||'admin'});
-  if(error){
-    // Demo mode: just update local state
+  const btn=event?.target;
+  if(btn){btn.disabled=true;btn.textContent='Approving...';}
+
+  // Try RPC first (atomic: marks tx completed + credits balance)
+  const {data,error}=await sb.rpc('approve_deposit',{
+    p_transaction_id:txId,
+    p_admin_id:adminUser?.id&&adminUser.id!=='demo-admin'?adminUser.id:null
+  });
+
+  if(error||!data?.success){
+    // Fallback: direct update with correct column names from schema
     const dep=allPending.find(p=>p.id===txId);
-    if(dep){dep.status='completed';renderPendingList();toast2(`Approved deposit for ${username} ✓`,'w');}
+    if(dep){
+      const {error:e1}=await sb.from('transactions').update({
+        status:'completed',
+        approved_by:adminUser?.id&&adminUser.id!=='demo-admin'?adminUser.id:null,
+        approved_at:new Date().toISOString()
+      }).eq('id',txId);
+
+      if(!e1){
+        // Credit the user's balance
+        const usr=allUsers.find(u=>u.id===dep.user_id);
+        if(usr){
+          const usdAmt=parseFloat(dep.usd_equivalent||0)||parseFloat(dep.amount||0);
+          await sb.from('users').update({
+            balance_real:parseFloat(usr.balance_real||0)+usdAmt
+          }).eq('id',dep.user_id);
+        }
+        dep.status='completed';
+        renderPendingList();updatePendingBadge();
+        toast2(`✓ ${username}'s deposit approved & balance credited`,'w');
+        await loadAdminLogs();
+        if(btn){btn.disabled=false;btn.textContent='✓ Approve & Credit';}
+        return;
+      }
+    }
+    toast2((error?.message||'Approval failed — check RLS policies'),'l');
+    if(btn){btn.disabled=false;btn.textContent='✓ Approve & Credit';}
     return;
   }
-  if(data?.success){toast2(`✓ Approved — ${username}'s balance credited`,'w');loadPending();}
-  else toast2(data?.error||'Failed to approve','l');
+
+  toast2(`✓ Approved — ${username}'s balance credited`,'w');
+  await loadPending();await loadAllTxs();buildDashboard();loadAdminLogs();
+  if(btn){btn.disabled=false;btn.textContent='✓ Approve & Credit';}
 };
-window.openReject=txId=>{rejectingTxId=txId;document.getElementById('rejectModal').classList.add('open');};
+
+window.openReject=txId=>{
+  rejectingTxId=txId;
+  document.getElementById('rejectReason').value='';
+  document.getElementById('rejectModal').classList.add('open');
+};
 window.closeModal2=()=>document.getElementById('rejectModal').classList.remove('open');
+
 window.confirmReject=async()=>{
   const reason=document.getElementById('rejectReason').value||'Payment not verified';
-  const {data,error}=await sb.rpc('reject_deposit',{p_transaction_id:rejectingTxId,p_admin_id:adminUser?.id||'admin',p_reason:reason});
-  if(error){
+  const {data,error}=await sb.rpc('reject_deposit',{
+    p_transaction_id:rejectingTxId,
+    p_admin_id:adminUser?.id&&adminUser.id!=='demo-admin'?adminUser.id:null,
+    p_reason:reason
+  });
+  if(error||!data?.success){
+    // Fallback with correct column names
+    await sb.from('transactions').update({
+      status:'failed',
+      reject_reason:reason,
+      rejected_by:adminUser?.id&&adminUser.id!=='demo-admin'?adminUser.id:null,
+      rejected_at:new Date().toISOString()
+    }).eq('id',rejectingTxId);
     const dep=allPending.find(p=>p.id===rejectingTxId);
-    if(dep){dep.status='failed';renderPendingList();toast2('Deposit rejected','g');}
-  }else if(data?.success){toast2('Deposit rejected','g');loadPending();}
+    if(dep){dep.status='failed';renderPendingList();updatePendingBadge();}
+  }
+  toast2('Deposit rejected','g');
+  await loadPending();await loadAllTxs();loadAdminLogs();
   closeModal2();
 };
 
-// ── Rounds Table ──────────────────────────────────────────────
+// ── Rounds table ────────────────────────────────────────────────
 function renderRoundsTable(){
   const q=document.getElementById('roundSearch')?.value.toLowerCase()||'';
-  let rows=filteredRounds.filter(r=>!q||String(r.round_number).includes(q));
-  document.getElementById('roundsTable').innerHTML=rows.slice(0,100).map(r=>`<tr>
-    <td>#${r.round_number}</td>
+  const rows=filteredRounds.filter(r=>!q||String(r.round_number).includes(q));
+  if(!rows.length){
+    document.getElementById('roundsTable').innerHTML=`<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">
+      ${allRounds.length===0?'No rounds in database yet — game hasn\'t started':'No rounds match this filter'}
+    </td></tr>`;
+    return;
+  }
+  document.getElementById('roundsTable').innerHTML=rows.slice(0,150).map(r=>`<tr>
+    <td style="font-family:'Share Tech Mono',monospace">#${r.round_number}</td>
     <td><span class="crash-val ${cvCls(r.crash_point)}">${parseFloat(r.crash_point||0).toFixed(2)}x</span></td>
     <td>◈${parseFloat(r.total_bets||0).toFixed(2)}</td>
     <td>◈${parseFloat(r.total_payout||0).toFixed(2)}</td>
-    <td style="color:${(r.house_profit||0)>0?'var(--green)':'var(--red)'}">◈${parseFloat(r.house_profit||0).toFixed(2)}</td>
+    <td style="color:${(r.house_profit||0)>=0?'var(--green)':'var(--red)'}">◈${parseFloat(r.house_profit||0).toFixed(2)}</td>
     <td>${r.player_count||0}</td>
-    <td><span class="badge bg-green">Completed</span></td>
-    <td style="color:var(--muted)">${timeAgo(r.created_at)}</td>
+    <td><span class="badge bg-muted">${r.status||'crashed'}</span></td>
+    <td style="color:var(--muted);font-size:.75rem">${timeAgo(r.created_at)}</td>
   </tr>`).join('');
 }
 window.filterRounds=renderRoundsTable;
 window.filterCrash=(t,btn)=>{
   document.querySelectorAll('#page-rounds .fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
-  crashFilter=t;
   filteredRounds=t==='all'?allRounds:t==='low'?allRounds.filter(r=>r.crash_point<1.5):t==='mid'?allRounds.filter(r=>r.crash_point>=1.5&&r.crash_point<3):allRounds.filter(r=>r.crash_point>=3);
   renderRoundsTable();
 };
 
-// ── Users Table ───────────────────────────────────────────────
-function renderUsersTable(){
-  const q=document.getElementById('userSearch')?.value.toLowerCase()||'';
-  let rows=filteredUsers.filter(u=>!q||u.username?.toLowerCase().includes(q)||u.email?.toLowerCase().includes(q));
-  document.getElementById('usersTable').innerHTML=rows.map(u=>`<tr>
-    <td><b>${u.username}</b></td>
-    <td style="color:var(--muted);font-size:.78rem">${u.email}</td>
-    <td>◈${parseFloat(u.balance_real||0).toFixed(2)}</td>
-    <td>◈${parseFloat(u.total_wagered||0).toFixed(2)}</td>
-    <td>◈${parseFloat(u.total_won||0).toFixed(2)}</td>
-    <td><span class="badge ${u.vip_tier==='diamond'?'bg-blue':u.vip_tier==='gold'?'bg-gold':u.vip_tier==='silver'?'bg-muted':'bg-muted'}">${u.vip_tier||'bronze'}</span></td>
-    <td style="color:var(--muted);font-size:.75rem">${u.created_at?new Date(u.created_at).toLocaleDateString():'-'}</td>
-    <td><span class="badge ${u.is_banned?'bg-red':'bg-green'}">${u.is_banned?'Banned':'Active'}</span></td>
-    <td><button class="act-btn" onclick="openUserEdit('${u.id}')">Edit</button><button class="act-btn ${u.is_banned?'unban':'ban'}" onclick="quickToggleBan('${u.id}',${u.is_banned})">${u.is_banned?'Unban':'Ban'}</button></td>
-  </tr>`).join('');
-}
-window.filterUsers=renderUsersTable;
-window.filterUserSt=(s,btn)=>{
-  document.querySelectorAll('#page-users .fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
-  userFilter=s;
-  filteredUsers=s==='all'?allUsers:allUsers.filter(u=>s==='banned'?u.is_banned:!u.is_banned);
-  renderUsersTable();
-};
-window.openUserEdit=id=>{
-  const u=allUsers.find(u=>u.id===id);if(!u)return;
-  editingUserId=id;
-  document.getElementById('editUsername').textContent=u.username;
-  document.getElementById('editBal').value=u.balance_real||0;
-  document.getElementById('editStatus').value=u.is_banned?'banned':'active';
-  document.getElementById('editNote').value='';
-  document.getElementById('editBanReason').value='';
-  document.getElementById('userModal').classList.add('open');
-};
-window.saveUser=async()=>{
-  const u=allUsers.find(u=>u.id===editingUserId);if(!u)return;
-  const newBal=parseFloat(document.getElementById('editBal').value);
-  const newStatus=document.getElementById('editStatus').value;
-  u.balance_real=newBal;u.is_banned=newStatus==='banned';
-  await sb.from('users').update({balance_real:newBal,is_banned:u.is_banned,ban_reason:document.getElementById('editBanReason').value||null}).eq('id',editingUserId);
-  renderUsersTable();closeModal();toast2('User updated ✓','w');
-};
-window.quickToggleBan=async(id,isBanned)=>{
-  await sb.from('users').update({is_banned:!isBanned}).eq('id',id);
-  const u=allUsers.find(u=>u.id===id);if(u)u.is_banned=!isBanned;
-  renderUsersTable();toast2(isBanned?'User unbanned':'User banned','g');
-};
-window.closeModal=()=>document.getElementById('userModal').classList.remove('open');
-
-// ── Bets Table ────────────────────────────────────────────────
-function renderBetsTable(){
-  const q=document.getElementById('betSearch')?.value.toLowerCase()||'';
-  let rows=filteredBets.filter(b=>!q||b.username?.toLowerCase().includes(q)||String(b.round_number||'').includes(q));
-  document.getElementById('betsTable').innerHTML=rows.slice(0,100).map(b=>`<tr>
-    <td style="color:var(--muted);font-size:.72rem;font-family:'Share Tech Mono',monospace">#${b.id||'—'}</td>
-    <td>${b.username||'—'}</td>
-    <td>#${b.round_number||b.round_id?.substring(0,6)||'—'}</td>
-    <td>◈${parseFloat(b.amount||0).toFixed(2)}</td>
-    <td>${b.cashout_multiplier?b.cashout_multiplier.toFixed(2)+'x':'—'}</td>
-    <td>${b.payout?'◈'+parseFloat(b.payout).toFixed(2):'—'}</td>
-    <td><span class="badge ${b.cashout_multiplier?'bg-green':'bg-red'}">${b.cashout_multiplier?'Won':'Lost'}</span></td>
-    <td><span class="badge ${b.is_demo?'bg-blue':'bg-gold'}">${b.is_demo?'Demo':'Real'}</span></td>
-    <td style="color:var(--muted);font-size:.72rem">${timeAgo(b.placed_at)}</td>
-  </tr>`).join('');
-}
-window.filterBets=renderBetsTable;
-window.filterBetResult=(t,btn)=>{
-  document.querySelectorAll('#page-bets .fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
-  filteredBets=t==='all'?allBets:t==='won'?allBets.filter(b=>b.cashout_multiplier):allBets.filter(b=>!b.cashout_multiplier);
-  renderBetsTable();
-};
-
-// ── Settings ──────────────────────────────────────────────────
-window.saveSettings=async type=>{
-  if(type==='edge'){
-    await sb.from('game_settings').update({house_edge_pct:parseFloat(document.getElementById('sHouseEdge').value),min_bet:parseFloat(document.getElementById('sMinBet').value),max_bet:parseFloat(document.getElementById('sMaxBet').value),max_win_per_round:parseFloat(document.getElementById('sMaxWin').value)}).neq('id','00000000-0000-0000-0000-000000000000').catch(()=>{});
-  }else if(type==='round'){
-    await sb.from('game_settings').update({wait_time_seconds:parseInt(document.getElementById('sWaitTime').value),ghost_player_count:parseInt(document.getElementById('sGhosts').value),game_status:document.getElementById('sGameStatus').value}).neq('id','00000000-0000-0000-0000-000000000000').catch(()=>{});
-  }else if(type==='paybill'){
-    await sb.from('paybill_config').update({paybill_number:document.getElementById('sPaybill').value,account_name:document.getElementById('sPaybillName').value}).eq('method','mpesa').catch(()=>{});
-    await sb.from('paybill_config').update({paybill_number:document.getElementById('sAirtel').value}).eq('method','airtel').catch(()=>{});
-  }
-  toast2('Settings saved ✓','w');
-};
-window.changeAdminPass=()=>{
-  const p1=document.getElementById('sNewPass').value,p2=document.getElementById('sNewPass2').value;
-  if(p1!==p2){toast2('Passwords do not match','l');return;}
-  if(p1.length<8){toast2('Minimum 8 characters','l');return;}
-  sb.auth.updateUser({password:p1}).then(()=>toast2('Password updated ✓','w'));
-};
-
-// ── Navigation ─────────────────────────────────────────────────
-window.showPage=(id,el)=>{
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  el.classList.add('active');
-  if(id==='pending')loadPending();
-  if(id==='rounds')renderRoundsTable();
-  if(id==='users')renderUsersTable();
-  if(id==='bets')renderBetsTable();
-  if(id==='dashboard')buildDashboard();
-  if(id==='crashes')buildCrashAnalytics();
-};
-
-// ── Crash Analytics ───────────────────────────────────────────
-let crashLogFilter='all';
-function cpCat(cp){return cp<1.5?'Low':cp<3?'Mid':cp<10?'High':'Moon 🚀';}
-function cpCls(cp){return cp<1.5?'cp-L':cp<3?'cp-M':'cp-H';}
-
+// ── Crash Analytics ─────────────────────────────────────────────
 function buildCrashAnalytics(){
-  const cps=allRounds.map(r=>r.crash_point).filter(Boolean).sort((a,b)=>a-b);
+  const cps=allRounds.map(r=>parseFloat(r.crash_point)).filter(Boolean).sort((a,b)=>a-b);
   if(!cps.length)return;
-  const min=Math.min(...cps),max=Math.max(...cps);
-  const avg=(cps.reduce((a,b)=>a+b,0)/cps.length).toFixed(2);
-  const mid=cps[Math.floor(cps.length/2)].toFixed(2);
+  document.getElementById('caMin').textContent=Math.min(...cps).toFixed(2)+'x';
+  document.getElementById('caMax').textContent=Math.max(...cps).toFixed(2)+'x';
+  document.getElementById('caAvg').textContent=(cps.reduce((a,b)=>a+b,0)/cps.length).toFixed(2)+'x';
+  document.getElementById('caMed').textContent=cps[Math.floor(cps.length/2)].toFixed(2)+'x';
   const busts=cps.filter(c=>c<1.5).length;
   const moons=cps.filter(c=>c>=10).length;
-  document.getElementById('caMin').textContent=min.toFixed(2)+'x';
-  document.getElementById('caMax').textContent=max.toFixed(2)+'x';
-  document.getElementById('caAvg').textContent=avg+'x';
-  document.getElementById('caMed').textContent=mid+'x';
   document.getElementById('caBusts').textContent=busts+' ('+((busts/cps.length)*100).toFixed(1)+'%)';
   document.getElementById('caMoons').textContent=moons+' ('+((moons/cps.length)*100).toFixed(1)+'%)';
   buildCrashDistChart(cps);
@@ -763,15 +1342,14 @@ function buildCrashAnalytics(){
 }
 
 function buildCrashDistChart(cps){
-  // Buckets: <1.5, 1.5-2, 2-3, 3-5, 5-10, 10-20, 20+
   const buckets=[
-    {lbl:'<1.5x',  fn:c=>c<1.5,           col:'var(--red)'},
-    {lbl:'1.5–2x', fn:c=>c>=1.5&&c<2,     col:'#ff9f43'},
-    {lbl:'2–3x',   fn:c=>c>=2&&c<3,       col:'var(--gold)'},
-    {lbl:'3–5x',   fn:c=>c>=3&&c<5,       col:'#26de81'},
-    {lbl:'5–10x',  fn:c=>c>=5&&c<10,      col:'var(--green)'},
-    {lbl:'10–20x', fn:c=>c>=10&&c<20,     col:'var(--blue)'},
-    {lbl:'20x+',   fn:c=>c>=20,           col:'var(--purple)'},
+    {lbl:'<1.5x',fn:c=>c<1.5,col:'var(--red)'},
+    {lbl:'1.5–2x',fn:c=>c>=1.5&&c<2,col:'#ff9f43'},
+    {lbl:'2–3x',fn:c=>c>=2&&c<3,col:'var(--gold)'},
+    {lbl:'3–5x',fn:c=>c>=3&&c<5,col:'#26de81'},
+    {lbl:'5–10x',fn:c=>c>=5&&c<10,col:'var(--green)'},
+    {lbl:'10–20x',fn:c=>c>=10&&c<20,col:'var(--blue)'},
+    {lbl:'20x+',fn:c=>c>=20,col:'var(--purple)'},
   ];
   const counts=buckets.map(b=>({...b,cnt:cps.filter(b.fn).length}));
   const mx=Math.max(...counts.map(b=>b.cnt))||1;
@@ -779,13 +1357,12 @@ function buildCrashDistChart(cps){
     <div class="dist-bar-w">
       <div style="font-size:.6rem;color:var(--muted);margin-bottom:2px">${b.cnt}</div>
       <div class="dist-bar" style="height:${Math.max(4,(b.cnt/mx)*90)}px;background:${b.col};opacity:.75"></div>
-      <div style="font-size:.58rem;color:var(--muted);margin-top:3px;text-align:center">${b.lbl}</div>
+      <div style="font-size:.56rem;color:var(--muted);margin-top:3px;text-align:center">${b.lbl}</div>
     </div>`).join('');
 }
 
 function buildCrashGrid(){
-  const last100=allRounds.slice(0,100);
-  document.getElementById('crashGrid').innerHTML=last100.map(r=>`
+  document.getElementById('crashGrid').innerHTML=allRounds.slice(0,100).map(r=>`
     <div class="cp-pill ${cpCls(r.crash_point)}" title="Round #${r.round_number} · ${timeAgo(r.created_at)}">
       ${parseFloat(r.crash_point||0).toFixed(2)}x
     </div>`).join('');
@@ -802,47 +1379,303 @@ window.renderCrashLog=function(){
     return true;
   });
   document.getElementById('crashLogTable').innerHTML=rows.slice(0,150).map(r=>`<tr>
-    <td>#${r.round_number}</td>
+    <td style="font-family:'Share Tech Mono',monospace">#${r.round_number}</td>
     <td><span class="crash-val ${cvCls(r.crash_point)}" style="font-size:.95rem">${parseFloat(r.crash_point||0).toFixed(2)}x</span></td>
     <td><span class="badge ${r.crash_point<1.5?'bg-red':r.crash_point<3?'bg-gold':'bg-green'}">${cpCat(r.crash_point)}</span></td>
     <td>◈${parseFloat(r.total_bets||0).toFixed(2)}</td>
     <td>◈${parseFloat(r.total_payout||0).toFixed(2)}</td>
     <td style="color:${(r.house_profit||0)>=0?'var(--green)':'var(--red)'}">◈${parseFloat(r.house_profit||0).toFixed(2)}</td>
     <td>${r.player_count||0}</td>
-    <td style="color:var(--muted);font-size:.75rem">${timeAgo(r.created_at)}</td>
+    <td style="color:var(--muted);font-size:.73rem">${timeAgo(r.created_at)}</td>
   </tr>`).join('');
 };
 window.filterCrashLog=(t,btn)=>{
   document.querySelectorAll('#page-crashes .fbtn').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  crashLogFilter=t;
-  renderCrashLog();
+  btn.classList.add('on');crashLogFilter=t;renderCrashLog();
 };
 
-// ── Helpers ───────────────────────────────────────────────────
-function cvCls(cp){return cp<1.5?'cv-L':cp<3?'cv-M':'cv-H';}
-function fmtK(n){return n>=1000?(n/1000).toFixed(1)+'k':parseFloat(n).toFixed(2);}
-function timeAgo(d){
-  if(!d)return '—';
-  const mins=Math.round((Date.now()-new Date(d))/60000);
-  if(mins<1)return 'just now';if(mins<60)return mins+'m ago';
-  const hrs=Math.round(mins/60);if(hrs<24)return hrs+'h ago';
-  return Math.round(hrs/24)+'d ago';
+// ── Users ────────────────────────────────────────────────────────
+function renderUsersTable(){
+  const q=document.getElementById('userSearch')?.value.toLowerCase()||'';
+  const rows=filteredUsers.filter(u=>!q||u.username?.toLowerCase().includes(q)||u.email?.toLowerCase().includes(q));
+  if(!rows.length){
+    document.getElementById('usersTable').innerHTML=`<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--muted)">
+      ${allUsers.length===0?'No users found — check RLS policies in Supabase':'No users match this filter'}
+    </td></tr>`;
+    return;
+  }
+  document.getElementById('usersTable').innerHTML=rows.map(u=>`<tr>
+    <td><b>${u.username}</b>${u.is_admin?'<span class="badge bg-gold" style="margin-left:5px;font-size:.55rem">ADMIN</span>':''}</td>
+    <td style="color:var(--muted);font-size:.77rem">${u.email||'—'}</td>
+    <td style="font-family:'Share Tech Mono',monospace">◈${parseFloat(u.balance_real||0).toFixed(2)}</td>
+    <td>◈${parseFloat(u.total_wagered||0).toFixed(2)}</td>
+    <td>◈${parseFloat(u.total_won||0).toFixed(2)}</td>
+    <td style="color:${parseFloat(u.total_profit||0)>=0?'var(--green)':'var(--red)'}">◈${parseFloat(u.total_profit||0).toFixed(2)}</td>
+    <td><span class="badge ${u.vip_tier==='diamond'?'bg-blue':u.vip_tier==='gold'?'bg-gold':u.vip_tier==='silver'?'bg-muted':'bg-muted'}">${u.vip_tier||'bronze'}</span></td>
+    <td style="color:var(--muted);font-size:.74rem">${u.created_at?new Date(u.created_at).toLocaleDateString():'-'}</td>
+    <td><span class="badge ${u.is_banned?'bg-red':'bg-green'}">${u.is_banned?'Banned':'Active'}</span></td>
+    <td>
+      <button class="act-btn" onclick="openUserEdit('${u.id}')">Edit</button>
+      <button class="act-btn ${u.is_banned?'unban':'ban'}" onclick="quickToggleBan('${u.id}',${!!u.is_banned})">${u.is_banned?'Unban':'Ban'}</button>
+    </td>
+  </tr>`).join('');
 }
-window.toast2=(msg,t)=>{
-  const el=document.getElementById('toastEl');
-  el.textContent=msg;el.className=`toast show ${t==='w'?'tw':t==='l'?'tl':t==='g'?'tg':'ti'}`;
-  clearTimeout(el._t);el._t=setTimeout(()=>el.className='toast',3800);
+window.filterUsers=renderUsersTable;
+window.filterUserSt=(s,btn)=>{
+  document.querySelectorAll('#page-users .fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  userFilter=s;
+  filteredUsers=s==='all'?allUsers
+    :s==='banned'?allUsers.filter(u=>u.is_banned)
+    :s==='admin'?allUsers.filter(u=>u.is_admin)
+    :allUsers.filter(u=>!u.is_banned);
+  renderUsersTable();
 };
+window.openUserEdit=id=>{
+  const u=allUsers.find(u=>u.id===id);if(!u)return;
+  editingUserId=id;
+  document.getElementById('editUsername').textContent=u.username;
+  document.getElementById('editBal').value=parseFloat(u.balance_real||0).toFixed(2);
+  document.getElementById('editStatus').value=u.is_banned?'banned':'active';
+  document.getElementById('editNote').value='';
+  document.getElementById('editBanReason').value=u.ban_reason||'';
+  document.getElementById('editAdminNote').value='';
+  document.getElementById('userModal').classList.add('open');
+};
+window.saveUser=async()=>{
+  const u=allUsers.find(u=>u.id===editingUserId);if(!u)return;
+  const newBal=parseFloat(document.getElementById('editBal').value);
+  const newStatus=document.getElementById('editStatus').value;
+  const note=document.getElementById('editNote').value;
+  const banReason=document.getElementById('editBanReason').value;
+  u.balance_real=newBal;u.is_banned=newStatus==='banned';
+
+  // Exact columns from schema — no 'notes' column exists
+  const {error}=await sb.from('users').update({
+    balance_real:newBal,
+    is_banned:u.is_banned,
+    ban_reason:banReason||null,
+  }).eq('id',editingUserId);
+
+  if(!error){
+    await sb.from('admin_logs').insert({
+      admin_id:adminUser?.id||null,
+      action:'edit_user',target_type:'user',target_id:editingUserId,
+      details:{balance_set:newBal,status:newStatus,note},
+    }).catch(()=>{});
+    renderUsersTable();closeModal();
+    toast2('User updated ✓','w');
+    loadAdminLogs();
+  }else{
+    toast2('Update failed: '+error.message,'l');
+  }
+};
+window.quickToggleBan=async(id,isBanned)=>{
+  const {error}=await sb.from('users').update({is_banned:!isBanned}).eq('id',id);
+  if(error){toast2('Failed: '+error.message,'l');return;}
+  const u=allUsers.find(u=>u.id===id);if(u)u.is_banned=!isBanned;
+  renderUsersTable();
+  toast2(isBanned?'User unbanned ✓':'User banned ✓','g');
+  await sb.from('admin_logs').insert({
+    admin_id:adminUser?.id||null,
+    action:isBanned?'unban_user':'ban_user',target_type:'user',target_id:id,details:{},
+  }).catch(()=>{});
+};
+window.closeModal=()=>document.getElementById('userModal').classList.remove('open');
+
+// ── Bets Table ──────────────────────────────────────────────────
+function renderBetsTable(){
+  const q=document.getElementById('betSearch')?.value.toLowerCase()||'';
+  const rows=filteredBets.filter(b=>!q||b.username?.toLowerCase().includes(q)||String(b.round_number||'').includes(q));
+  if(!rows.length){
+    document.getElementById('betsTable').innerHTML=`<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--muted)">
+      ${allBets.length===0?'No bets placed yet':'No bets match this filter'}
+    </td></tr>`;
+    return;
+  }
+  document.getElementById('betsTable').innerHTML=rows.slice(0,100).map(b=>`<tr>
+    <td style="color:var(--muted);font-size:.7rem;font-family:'Share Tech Mono',monospace">${(b.id||'—').substring(0,8)}…</td>
+    <td>${b.username||'—'}</td>
+    <td style="font-family:'Share Tech Mono',monospace">#${b.round_number||'—'}</td>
+    <td>◈${parseFloat(b.amount||0).toFixed(2)}</td>
+    <td>${b.cashout_multiplier?parseFloat(b.cashout_multiplier).toFixed(2)+'x':'—'}</td>
+    <td>${b.payout?'◈'+parseFloat(b.payout).toFixed(2):'—'}</td>
+    <td><span class="badge ${b.cashout_multiplier?'bg-green':'bg-red'}">${b.cashout_multiplier?'Won':'Lost'}</span></td>
+    <td><span class="badge ${b.is_demo?'bg-blue':'bg-gold'}">${b.is_demo?'Demo':'Real'}</span></td>
+    <td style="color:var(--muted);font-size:.73rem">${timeAgo(b.placed_at)}</td>
+  </tr>`).join('');
+}
+window.filterBets=renderBetsTable;
+window.filterBetResult=(t,btn)=>{
+  document.querySelectorAll('#page-bets .fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  filteredBets=t==='all'?allBets:t==='won'?allBets.filter(b=>b.cashout_multiplier):t==='lost'?allBets.filter(b=>!b.cashout_multiplier):t==='real'?allBets.filter(b=>!b.is_demo):allBets.filter(b=>b.is_demo);
+  renderBetsTable();
+};
+
+// ── All Transactions Table ──────────────────────────────────────
+function renderTxsTable(){
+  const q=document.getElementById('txSearch')?.value.toLowerCase()||'';
+  const rows=filteredTxs.filter(t=>!q
+    ||t.username?.toLowerCase().includes(q)
+    ||(t.payment_ref||'').toLowerCase().includes(q)
+    ||(t.reference||'').toLowerCase().includes(q)
+    ||(t.method||'').toLowerCase().includes(q)
+    ||(t.account_ref||'').toLowerCase().includes(q));
+  if(!rows.length){
+    document.getElementById('txsTable').innerHTML=`<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--muted)">
+      ${allTxs.length===0?'No transactions yet':'No transactions match this filter'}
+    </td></tr>`;
+    return;
+  }
+  document.getElementById('txsTable').innerHTML=rows.slice(0,150).map(t=>{
+    const reviewer=allUsers.find(u=>u.id===t.approved_by||u.id===t.rejected_by);
+    return`<tr>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted)">${(t.id||'').substring(0,8)}…</td>
+      <td><b>${t.username||'—'}</b></td>
+      <td><span class="badge ${t.type==='deposit'?'bg-green':t.type==='withdrawal'?'bg-red':t.type==='bonus'?'bg-gold':'bg-blue'}">${t.type}</span></td>
+      <td style="font-family:'Share Tech Mono',monospace">${t.currency||''} ${parseFloat(t.amount||0).toFixed(2)}${t.usd_equivalent?`<div style="font-size:.65rem;color:var(--muted)">≈$${parseFloat(t.usd_equivalent).toFixed(4)}</div>`:''}</td>
+      <td style="color:var(--muted)">${t.method||'—'}</td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted)">${t.payment_ref||t.reference||'—'}</td>
+      <td><span class="badge ${t.status==='completed'?'bg-green':t.status==='failed'?'bg-red':'bg-gold'}">${t.status}</span>${t.reject_reason?`<div style="font-size:.62rem;color:var(--red);margin-top:2px">${t.reject_reason}</div>`:''}</td>
+      <td style="font-size:.72rem;color:var(--muted)">${reviewer?.username||'—'}</td>
+      <td style="color:var(--muted);font-size:.73rem">${timeAgo(t.created_at)}</td>
+    </tr>`;
+  }).join('');
+}
+window.filterTxs=renderTxsTable;
+window.filterTxType=(t,btn)=>{
+  document.querySelectorAll('#page-txs .fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  if(t==='all')filteredTxs=[...allTxs];
+  else if(t==='pending')filteredTxs=allTxs.filter(tx=>tx.status==='pending');
+  else if(t==='completed')filteredTxs=allTxs.filter(tx=>tx.status==='completed');
+  else filteredTxs=allTxs.filter(tx=>tx.type===t);
+  renderTxsTable();
+};
+
+// ── Admin Logs ──────────────────────────────────────────────────
+function renderAdminLogs(){
+  if(!allLogs.length){
+    document.getElementById('adminLogsList').innerHTML='<div style="text-align:center;color:var(--muted);padding:2rem">No admin actions recorded yet</div>';
+    return;
+  }
+  const iconMap={approve_deposit:{ico:'✓',cls:'approve'},reject_deposit:{ico:'✕',cls:'reject'},ban_user:{ico:'🚫',cls:'ban'},unban_user:{ico:'✓',cls:'unban'},edit_user:{ico:'✏️',cls:'edit'}};
+  document.getElementById('adminLogsList').innerHTML=allLogs.map(l=>{
+    const m=iconMap[l.action]||{ico:'⚙️',cls:'edit'};
+    const det=l.details||{};
+    const admin=allUsers.find(u=>u.id===l.admin_id);
+    return`<div class="log-item">
+      <div class="log-icon ${m.cls}">${m.ico}</div>
+      <div style="flex:1;min-width:0">
+        <div class="log-action">${l.action?.replace(/_/g,' ')||'action'}</div>
+        <div class="log-detail">
+          By: <b>${admin?.username||'admin'}</b> · 
+          ${l.target_type||''} ${l.target_id?.substring(0,8)||''}
+          ${det.amount?` · ${det.currency||''} ${det.amount}`:''}
+          ${det.reason?' · Reason: '+det.reason:''}
+          ${det.note?' · Note: '+det.note:''}
+        </div>
+      </div>
+      <div class="log-time">${timeAgo(l.created_at)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Settings ─────────────────────────────────────────────────────
+window.saveSettings=async type=>{
+  if(type==='edge'){
+    await sb.from('game_settings').update({
+      house_edge_pct:parseFloat(document.getElementById('sHouseEdge').value),
+      min_bet:parseFloat(document.getElementById('sMinBet').value),
+      max_bet:parseFloat(document.getElementById('sMaxBet').value),
+      max_win_per_round:parseFloat(document.getElementById('sMaxWin').value),
+    }).neq('id','00000000-0000-0000-0000-000000000000');
+  }else if(type==='round'){
+    await sb.from('game_settings').update({
+      wait_time_seconds:parseInt(document.getElementById('sWaitTime').value),
+      ghost_player_count:parseInt(document.getElementById('sGhosts').value),
+      game_status:document.getElementById('sGameStatus').value,
+    }).neq('id','00000000-0000-0000-0000-000000000000');
+  }else if(type==='paybill'){
+    await sb.from('paybill_config').update({paybill_number:document.getElementById('sPaybill').value,account_name:document.getElementById('sPaybillName').value}).eq('method','mpesa');
+    await sb.from('paybill_config').update({paybill_number:document.getElementById('sAirtel').value}).eq('method','airtel');
+  }
+  toast2('Settings saved ✓','w');
+};
+window.changeAdminPass=()=>{
+  const p1=document.getElementById('sNewPass').value,p2=document.getElementById('sNewPass2').value;
+  if(p1!==p2){toast2('Passwords do not match','l');return;}
+  if(p1.length<8){toast2('Minimum 8 characters','l');return;}
+  sb.auth.updateUser({password:p1}).then(({error})=>{
+    if(error)toast2('Error: '+error.message,'l');
+    else{toast2('Password updated ✓','w');document.getElementById('sNewPass').value='';document.getElementById('sNewPass2').value='';}
+  });
+};
+
+// ── Navigation ───────────────────────────────────────────────────
+window.showPage=(id,el)=>{
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
+  const actions={
+    pending:loadPending,
+    preview:loadPreview,
+    rounds:renderRoundsTable,
+    crashes:buildCrashAnalytics,
+    users:renderUsersTable,
+    bets:renderBetsTable,
+    txs:renderTxsTable,
+    logs:()=>loadAdminLogs(),
+    dashboard:buildDashboard,
+  };
+  if(actions[id])actions[id]();
+};
+
+// ── Mobile nav ───────────────────────────────────────────────
+window.toggleMobileNav=()=>{
+  document.querySelector('.sidenav').classList.toggle('open');
+  document.getElementById('mobileOverlay').classList.toggle('open');
+};
+window.closeMobileNav=()=>{
+  document.querySelector('.sidenav').classList.remove('open');
+  document.getElementById('mobileOverlay').classList.remove('open');
+};
+const origShowPage=window.showPage;
+window.showPage=(id,el)=>{origShowPage(id,el);closeMobileNav();};
+
+// ── Modal close on backdrop ──────────────────────────────────────
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
 
-// Check if already admin
-sb.auth.getSession().then(async({data:{session}})=>{
-  if(session){
-    const {data:u}=await sb.from('users').select('is_admin').eq('id',session.user.id).single();
-    if(u?.is_admin){adminUser=session.user;document.getElementById('loginScreen').style.display='none';document.getElementById('adminLayout').style.display='flex';loadAll();}
-  }
-});
+// ── MOCK DATA (fallback if DB is empty) ──────────────────────────
+function mockRounds(n){
+  const r=[];
+  for(let i=n;i>=1;i--){
+    const cp=Math.random()<.04?parseFloat(rnd(1,1.3).toFixed(2)):Math.max(1.01,parseFloat((1/(1-Math.random())).toFixed(2)));
+    const bets=parseFloat(rnd(50,3000).toFixed(2));
+    const pay=parseFloat((bets*rnd(.3,.9)).toFixed(2));
+    r.push({round_number:i,crash_point:cp,total_bets:bets,total_payout:pay,house_profit:parseFloat((bets-pay).toFixed(2)),player_count:Math.floor(rnd(3,20)),created_at:new Date(Date.now()-(n-i)*600000).toISOString(),status:'crashed'});
+  }return r.reverse();
+}
+function mockUsers(n){
+  const names=['Kipchoge','Wanjiku','Otieno','Achieng','Mwangi','Kamau','Njeri','Oduya','Koech','Auma','Barasa','Chege'];
+  return Array.from({length:n},(_,i)=>{
+    const w=parseFloat(rnd(50,15000).toFixed(2)),won=parseFloat((w*rnd(.55,1.1)).toFixed(2));
+    return{id:'mock-'+i,username:names[i%names.length]+(Math.floor(rnd(10,99))),email:`user${i+1}@example.com`,balance_real:parseFloat(rnd(0,2000).toFixed(2)),total_wagered:w,total_won:won,total_profit:parseFloat(rnd(-500,2000).toFixed(2)),vip_tier:w>20000?'diamond':w>5000?'gold':w>1000?'silver':'bronze',created_at:new Date(Date.now()-rnd(0,8e7)).toISOString(),is_banned:Math.random()>.9,currency:'KES',is_admin:false,is_bot:false};
+  });
+}
+function mockPending(){
+  const methods=['mpesa','airtel','bank','bitcoin'];
+  const names=['Kipchoge52','WanjikuX','FireOtieno','LuckyBet'];
+  return Array.from({length:3},(_,i)=>({
+    id:'pd-'+i,username:names[i%names.length],email:`user${i}@ex.com`,
+    amount:parseFloat(rnd(100,5000).toFixed(2)),usd_equivalent:parseFloat(rnd(1,40).toFixed(4)),
+    deposit_currency:'KES',currency:'KES',method:methods[i%methods.length],
+    phone_number:'0712'+Math.floor(rnd(100000,999999)),
+    payment_ref:'RKA'+Math.random().toString(36).substring(2,10).toUpperCase(),
+    account_ref:'DF-'+Math.random().toString(36).substring(2,10).toUpperCase(),
+    status:'pending',created_at:new Date(Date.now()-rnd(0,3600000)).toISOString(),
+    minutes_waiting:parseFloat(rnd(2,90).toFixed(0)),
+  }));
+}
 </script>
 </body>
 </html>
