@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dragon Flight — Withdrawal Verification</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐉</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   DRAGON FLIGHT — Verification Page
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Design tokens ─────────────────────────────────────────── */
+:root {
+  --fire: #ff6b1a;
+  --gold: #f5c518;
+  --deep: #06040f;
+  --panel: #110d22;
+  --panel2: #170e2b;
+  --border: rgba(255,255,255,.07);
+  --border-gold: rgba(245,197,24,.18);
+  --text: #f0e6d3;
+  --muted: #6b6080;
+  --green: #22d97a;
+  --red: #ff4455;
+  --blue: #4da6ff;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--deep);
+  font-family: 'Rajdhani', sans-serif;
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(ellipse 70% 40% at 50% -5%, rgba(255,107,26,.08) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 30% at 90% 90%, rgba(34,217,122,.04) 0%, transparent 55%),
+    radial-gradient(1.5px 1.5px at 10% 15%, rgba(255,255,255,.55) 0%, transparent 100%),
+    radial-gradient(2px   2px   at 52%  7%, rgba(255,255,255,.60) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 76% 42%, rgba(255,255,255,.38) 0%, transparent 100%),
+    radial-gradient(1px   1px   at 28% 72%, rgba(255,255,255,.32) 0%, transparent 100%),
+    radial-gradient(2px   2px   at 88% 14%, rgba(255,255,255,.50) 0%, transparent 100%);
+}
+
+/* ── Layout ─────────────────────────────────────────────────── */
+.page-wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Topbar ─────────────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .85rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(6,4,15,.96);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 24px rgba(0,0,0,.55);
+}
+.topbar-logo {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: .9rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--gold), var(--fire));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: .5px;
+}
+.topbar-back {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: .35rem .8rem;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: .8rem;
+  cursor: pointer;
+  transition: all .2s;
+  text-decoration: none;
+  letter-spacing: .4px;
+}
+.topbar-back:hover {
+  color: var(--text);
+  border-color: rgba(255,255,255,.2);
+  background: rgba(255,255,255,.04);
+}
+
+/* ── Content ─────────────────────────────────────────────────── */
+.content {
+  flex: 1;
+  padding: 1.25rem 1rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Step progress ───────────────────────────────────────────── */
+.steps-bar {
+  display: flex;
+  align-items: center;
+  padding: .1rem 0;
+}
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+.step-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  transition: all .4s;
+}
+.step.active .step-dot {
+  border-color: var(--green);
+  background: rgba(34,217,122,.15);
+  color: var(--green);
+  box-shadow: 0 0 20px rgba(34,217,122,.45);
+}
+.step.done .step-dot {
+  border-color: rgba(34,217,122,.5);
+  background: rgba(34,217,122,.1);
+  color: var(--green);
+}
+.step-lbl {
+  font-size: .56rem;
+  color: var(--muted);
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  text-align: center;
+  white-space: nowrap;
+}
+.step.active .step-lbl,
+.step.done   .step-lbl { color: var(--green); }
+
+.step-line {
+  flex: 1;
+  height: 2px;
+  background: rgba(255,255,255,.06);
+  margin-bottom: 20px;
+  transition: background .45s;
+}
+.step.done + .step-line { background: rgba(34,217,122,.35); }
+
+/* ── Banners ─────────────────────────────────────────────────── */
+.banner {
+  border-radius: 12px;
+  padding: .85rem 1.1rem;
+  font-size: .82rem;
+  font-weight: 700;
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  line-height: 1.55;
+}
+.banner.success { background: rgba(34,217,122,.08); border: 1.5px solid rgba(34,217,122,.3); color: var(--green); }
+.banner.warning { background: rgba(245,197,24,.07); border: 1.5px solid rgba(245,197,24,.28); color: var(--gold); }
+.banner.error   { background: rgba(255,68,85,.07);  border: 1.5px solid rgba(255,68,85,.28);  color: var(--red); }
+.banner.info    { background: rgba(77,166,255,.07);  border: 1.5px solid rgba(77,166,255,.25); color: var(--blue); }
+
+/* ── Cards ───────────────────────────────────────────────────── */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.card-hdr {
+  padding: .9rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  font-family: 'Cinzel', serif;
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.card-body {
+  padding: 1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: .8rem;
+}
+
+/* ── Amount hero display ─────────────────────────────────────── */
+.amt-display {
+  background: rgba(34,217,122,.06);
+  border: 1.5px solid rgba(34,217,122,.2);
+  border-radius: 14px;
+  padding: 1.1rem 1.2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.amt-label {
+  font-size: .6rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: .3rem;
+  font-family: 'Cinzel', serif;
+}
+.amt-value {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--green);
+  line-height: 1;
+}
+.amt-sub {
+  font-size: .72rem;
+  color: var(--muted);
+  margin-top: .3rem;
+}
+
+/* ── Pay rows ────────────────────────────────────────────────── */
+.pay-rows { display: flex; flex-direction: column; gap: .45rem; }
+.pay-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255,255,255,.04);
+  border-radius: 9px;
+  padding: .55rem .85rem;
+  border: 1px solid rgba(255,255,255,.06);
+}
+.pay-row-label { font-size: .7rem; color: var(--muted); flex: 1; }
+.pay-row-val {
+  font-family: 'Share Tech Mono', monospace;
+  font-weight: 700;
+  font-size: .9rem;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+
+/* ── Copy button ─────────────────────────────────────────────── */
+.copy-btn {
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 5px;
+  color: var(--muted);
+  padding: .14rem .44rem;
+  font-size: .62rem;
+  cursor: pointer;
+  transition: all .15s;
+  font-family: 'Rajdhani', sans-serif;
+  white-space: nowrap;
+  letter-spacing: .3px;
+}
+.copy-btn:hover { background: rgba(255,255,255,.15); color: var(--text); }
+.copy-btn.copied { color: var(--green); border-color: rgba(34,217,122,.4); }
+
+/* ── Fee badge ───────────────────────────────────────────────── */
+.fee-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  background: rgba(255,107,26,.1);
+  border: 1.5px solid rgba(255,107,26,.3);
+  border-radius: 30px;
+  padding: .3rem .85rem;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--fire);
+}
+
+/* ── Form fields ─────────────────────────────────────────────── */
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label {
+  font-size: .65rem;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-family: 'Cinzel', serif;
+}
+.field input {
+  background: rgba(255,255,255,.05);
+  border: 1.5px solid rgba(255,255,255,.1);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 1rem;
+  padding: .7rem .9rem;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  width: 100%;
+}
+.field input:focus {
+  border-color: rgba(34,217,122,.5);
+  box-shadow: 0 0 0 3px rgba(34,217,122,.08);
+}
+.field input.upper { text-transform: uppercase; letter-spacing: 2.5px; }
+.field-hint { font-size: .66rem; color: var(--muted); line-height: 1.5; margin-top: 1px; }
+.field-hint.green { color: rgba(34,217,122,.85); }
+.field-hint.red   { color: var(--red); }
+
+/* ── Submit button ───────────────────────────────────────────── */
+.btn-submit {
+  width: 100%;
+  padding: .92rem;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #0a7035, var(--green));
+  color: #fff;
+  font-family: 'Cinzel', serif;
+  font-size: .9rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all .25s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  position: relative;
+  overflow: hidden;
+}
+.btn-submit:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+  background: rgba(255,255,255,.08);
+}
+.btn-submit:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 28px rgba(34,217,122,.35);
+}
+.btn-submit:not(:disabled):active { transform: translateY(0); }
+.btn-submit.loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.14), transparent);
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
+
+/* ── Home button ─────────────────────────────────────────────── */
+.btn-home {
+  display: block;
+  width: 100%;
+  padding: .75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-family: 'Cinzel', serif;
+  font-size: .8rem;
+  cursor: pointer;
+  text-align: center;
+  transition: all .2s;
+  text-decoration: none;
+  letter-spacing: .5px;
+}
+.btn-home:hover {
+  color: var(--text);
+  background: rgba(255,255,255,.07);
+  border-color: rgba(255,255,255,.16);
+}
+
+/* ── Partial payment bar ─────────────────────────────────────── */
+.partial-bar-wrap {
+  background: rgba(255,255,255,.06);
+  border-radius: 50px;
+  height: 10px;
+  overflow: hidden;
+  margin: .55rem 0;
+}
+.partial-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--fire));
+  border-radius: 50px;
+  width: 0;
+  transition: width .65s cubic-bezier(.34,1.56,.64,1);
+}
+.partial-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: .68rem;
+  color: var(--muted);
+}
+
+/* ── Success card ────────────────────────────────────────────── */
+.success-card {
+  background: rgba(34,217,122,.06);
+  border: 2px solid rgba(34,217,122,.28);
+  border-radius: 18px;
+  padding: 2rem 1.4rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .9rem;
+}
+.success-icon {
+  font-size: 3.8rem;
+  filter: drop-shadow(0 0 24px rgba(34,217,122,.55));
+  animation: popIn .48s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes popIn { from{transform:scale(.3);opacity:0} to{transform:scale(1);opacity:1} }
+.success-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--green);
+}
+.success-body {
+  font-size: .82rem;
+  color: var(--muted);
+  line-height: 1.8;
+  max-width: 300px;
+}
+.success-detail {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .76rem;
+  background: rgba(34,217,122,.07);
+  border: 1px solid rgba(34,217,122,.18);
+  border-radius: 9px;
+  padding: .7rem 1rem;
+  color: var(--text);
+  width: 100%;
+  text-align: left;
+  line-height: 1.85;
+}
+.success-note {
+  font-size: .7rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+/* ── Waiting / review card ───────────────────────────────────── */
+.waiting-card {
+  background: rgba(245,197,24,.05);
+  border: 1.5px solid rgba(245,197,24,.22);
+  border-radius: 16px;
+  padding: 1.6rem 1.3rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .85rem;
+}
+.waiting-icon {
+  font-size: 2.8rem;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+.waiting-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+.waiting-body {
+  font-size: .8rem;
+  color: var(--muted);
+  line-height: 1.8;
+  max-width: 300px;
+}
+
+/* ── Access denied card ──────────────────────────────────────── */
+.denied-card {
+  background: rgba(255,68,85,.05);
+  border: 1.5px solid rgba(255,68,85,.2);
+  border-radius: 16px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .9rem;
+}
+.denied-icon { font-size: 3rem; }
+.denied-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  color: var(--red);
+  font-weight: 700;
+}
+.denied-body {
+  font-size: .8rem;
+  color: var(--muted);
+  line-height: 1.75;
+  max-width: 300px;
+  white-space: pre-line;
+}
+
+/* ── Live pulse dot ──────────────────────────────────────────── */
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  display: inline-block;
+  flex-shrink: 0;
+  animation: pulse 1.6s ease-in-out infinite;
+  box-shadow: 0 0 7px var(--green);
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .35; transform: scale(.65); }
+}
+
+/* ── Spinner ─────────────────────────────────────────────────── */
+.spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.07);
+  border-top-color: var(--green);
+  animation: spin .8s linear infinite;
+  margin: 4rem auto;
+}
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* ── Notice box ──────────────────────────────────────────────── */
+.notice {
+  background: rgba(255,107,26,.06);
+  border: 1px solid rgba(255,107,26,.2);
+  border-radius: 9px;
+  padding: .6rem .85rem;
+  font-size: .73rem;
+  color: var(--fire);
+  line-height: 1.65;
+}
+.notice b { color: var(--gold); }
+
+/* ── Toast ───────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 1.3rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(90px);
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .62rem 1.3rem;
+  font-size: .82rem;
+  font-weight: 600;
+  z-index: 999;
+  opacity: 0;
+  transition: all .3s;
+  max-width: 90vw;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+.toast.tw { border-color: rgba(34,217,122,.4);  color: var(--green); }
+.toast.tl { border-color: rgba(255,68,85,.35);  color: var(--red); }
+.toast.ti { border-color: rgba(77,166,255,.35); color: var(--blue); }
+.toast.tg { border-color: rgba(245,197,24,.38); color: var(--gold); }
+
+@media(min-width:520px) { .content{padding:1.5rem 1.5rem 3.5rem} }
+</style>
+</head>
+<body>
+
+<div class="page-wrap">
+
+  <!-- ── Topbar ─────────────────────────────────────────────── -->
+  <div class="topbar">
+    <span class="topbar-logo">🐉 Dragon Flight</span>
+    <a href="index.html" class="topbar-back" id="backBtn">← Home</a>
+  </div>
+
+  <!-- ── Page content (rendered by JS) ─────────────────────── -->
+  <div class="content" id="mainContent">
+    <div class="spinner" id="loadSpinner"></div>
+  </div>
+
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toastEl"></div>
+
+<script type="module">
+/* ============================================================
+   Verification.html — Dragon Flight
+   Full state machine:
+     boot → auth → token → fetchTx → render(state)
+     states: pay | waiting | success | partial | not_detected | denied
+   Real-time: Supabase postgres_changes on transactions row
+   On submit → renderWaiting + back-to-home notification wired
+   ============================================================ */
+
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const sb = createClient(
+  'https://rwtezncoukiekayxuxje.supabase.co',
+  'sb_publishable_9JwkSoI9zm2oXu6tvZDRaw_2ebdCWtE'
+);
+
+// ── Page state ────────────────────────────────────────────────
+const S = {
+  txId        : null,
+  userId      : null,
+  tx          : null,
+  amount      : 0,
+  currency    : 'KES',
+  phone       : '',
+  acctRef     : '',
+  feeTotal    : 200,          // always KES 200
+  feePaid     : 0,
+  verifStatus : null,         // pending|submitted|verified|partial|not_detected|rejected
+  submitting  : false,
+  channel     : null,
+};
+
+// ── Helpers ───────────────────────────────────────────────────
+function toast(msg, type = 'i'){
+  const el = document.getElementById('toastEl');
+  if(!el) return;
+  el.textContent = msg;
+  el.className = `toast show t${type}`;
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.className = 'toast'; }, 4500);
+}
+
+function fmtKES(n, d = 2){
+  const v = parseFloat(n || 0);
+  if(!isFinite(v)) return 'KSh 0.00';
+  return 'KSh ' + v.toLocaleString('en-KE', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+
+function escH(s){
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function $(id){ return document.getElementById(id); }
+
+window._copy = (txt, btn) => {
+  navigator.clipboard?.writeText(txt).catch(()=>{
+    const ta = document.createElement('textarea');
+    ta.value = txt;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+  toast('Copied!', 'i');
+  if(btn){
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent = orig; btn.classList.remove('copied'); }, 2200);
+  }
+};
+
+// ── Step tracker ──────────────────────────────────────────────
+function stepsHtml(active){
+  const steps = [
+    { n:1, lbl:'Approved' },
+    { n:2, lbl:'Pay KSh 200' },
+    { n:3, lbl:'Review' },
+    { n:4, lbl:'Paid Out' },
+  ];
+  let html = '<div class="steps-bar">';
+  steps.forEach((s, i)=>{
+    const cls = s.n < active ? 'step done' : s.n === active ? 'step active' : 'step';
+    const dot = s.n < active ? '✓' : s.n;
+    html += `<div class="${cls}">
+      <div class="step-dot">${dot}</div>
+      <span class="step-lbl">${s.lbl}</span>
+    </div>`;
+    if(i < steps.length - 1) html += '<div class="step-line"></div>';
+  });
+  return html + '</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BOOT — auth → session token → fetch tx → route to state
+// ═══════════════════════════════════════════════════════════════
+async function boot(){
+  // 1. Auth
+  let session;
+  try { const { data } = await sb.auth.getSession(); session = data?.session; } catch(e){}
+  if(!session){ renderDenied('Please sign in to your account first.\n\nReturn to the game and make sure you are logged in.'); return; }
+  S.userId = session.user.id;
+
+  // 2. Resolve txId — prefer sessionStorage token (set by VERIFY NUMBER button),
+  //    fall back to ?withdrawal_id= URL param (deep-link support)
+  const urlParams   = new URLSearchParams(location.search);
+  const urlTxId     = urlParams.get('withdrawal_id');
+  const ssToken     = sessionStorage.getItem('df_verif_token');
+  const ssTxId      = sessionStorage.getItem('df_verif_txid');
+  const ssUid       = sessionStorage.getItem('df_verif_uid');
+
+  // Clear session tokens immediately — single-use
+  sessionStorage.removeItem('df_verif_token');
+  sessionStorage.removeItem('df_verif_txid');
+  sessionStorage.removeItem('df_verif_uid');
+
+  let txId = null;
+
+  if(ssToken && ssTxId && ssUid === S.userId){
+    // Primary path: came from VERIFY NUMBER notification button
+    txId = ssTxId;
+  } else if(urlTxId){
+    // Fallback path: opened via URL param (e.g. from external link or re-entry)
+    // Verify ownership server-side — no token required since we check user_id in DB query
+    txId = urlTxId;
+  } else {
+    renderDenied(
+      'This page can only be opened from a withdrawal notification.\n\n' +
+      'Return to the game, tap the 🔔 bell icon, then press VERIFY NUMBER.'
+    );
+    return;
+  }
+
+  S.txId = txId;
+
+  // 3. Fetch the withdrawal transaction
+  const { data:tx, error } = await sb
+    .from('transactions')
+    .select('*')
+    .eq('id', txId)
+    .eq('user_id', S.userId)
+    .eq('type', 'withdrawal')
+    .maybeSingle();
+
+  if(error || !tx){
+    renderDenied('Withdrawal record not found or session expired.\n\nPlease return to the game and use the notification link again.');
+    return;
+  }
+
+  // 4. Populate state
+  const meta    = tx.metadata || {};
+  S.tx          = tx;
+  S.amount      = parseFloat(tx.amount) || 0;
+  S.currency    = tx.currency || 'KES';
+  S.phone       = meta.payout_phone || tx.phone_number || '—';
+  S.acctRef     = 'VRF-' + (tx.reference || '').replace('WIT-','').substring(0, 8).toUpperCase();
+  S.feePaid     = parseFloat(meta.verif_fee_paid || 0);
+  S.verifStatus = meta.verif_status || 'pending';
+
+  // 5. Guard: already fully verified
+  if(S.verifStatus === 'verified'){
+    renderSuccess();
+    return;
+  }
+
+  // 6. Guard: not yet approved by admin
+  if(tx.status !== 'completed'){
+    renderDenied('This withdrawal has not been approved by admin yet.\n\nYou will receive a notification once approved.');
+    return;
+  }
+
+  // 7. Route to correct view
+  if(S.verifStatus === 'submitted'){
+    renderWaiting();
+  } else if(S.verifStatus === 'partial'){
+    renderPayPage('partial', S.feePaid);
+  } else if(S.verifStatus === 'not_detected' || S.verifStatus === 'rejected'){
+    renderPayPage('not_detected');
+  } else {
+    renderPayPage();
+  }
+
+  // 8. Subscribe to real-time updates
+  subscribeUpdates();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  REAL-TIME — monitors DB changes on this transaction row
+// ═══════════════════════════════════════════════════════════════
+function subscribeUpdates(){
+  // Unsubscribe any existing channel first
+  if(S.channel){ sb.removeChannel(S.channel); }
+
+  S.channel = sb.channel('verif-page-' + S.txId)
+    .on('postgres_changes', {
+      event  : 'UPDATE',
+      schema : 'public',
+      table  : 'transactions',
+      filter : `id=eq.${S.txId}`,
+    }, payload => {
+      const tx   = payload.new;
+      const meta = tx.metadata || {};
+      const paid = parseFloat(meta.verif_fee_paid || 0);
+
+      // ── Admin confirmed payout ──────────────────────────────
+      if(meta.verif_status === 'verified'){
+        S.verifStatus = 'verified';
+        S.phone       = meta.payout_phone || S.phone;
+        renderSuccess();
+        toast('✅ Withdrawal sent! Check your M-Pesa SMS.', 'w');
+        return;
+      }
+
+      // ── Admin acknowledged submission ───────────────────────
+      if(meta.verif_status === 'submitted' && S.verifStatus !== 'submitted'){
+        S.verifStatus = 'submitted';
+        renderWaiting();
+        toast('🔐 Verification received — admin is reviewing your payment.', 'i');
+        return;
+      }
+
+      // ── Admin flagged a problem ─────────────────────────────
+      if(tx.status === 'failed'){
+        S.feePaid = paid;
+        const isPartial = paid > 0 && paid < S.feeTotal;
+        S.verifStatus = isPartial ? 'partial' : 'not_detected';
+        renderPayPage(S.verifStatus, paid);
+
+        if(isPartial){
+          toast(`⚠️ Partial payment: ${fmtKES(paid)} received. Please pay the remaining ${fmtKES(S.feeTotal - paid)}.`, 'g');
+        } else {
+          toast('❌ Payment not detected — please check your confirmation code and resubmit.', 'l');
+        }
+      }
+    })
+    .subscribe();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RENDER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+// ── Access Denied ─────────────────────────────────────────────
+function renderDenied(msg){
+  $('loadSpinner')?.remove();
+  $('mainContent').innerHTML = `
+    <div class="denied-card">
+      <div class="denied-icon">🔒</div>
+      <div class="denied-title">Access Restricted</div>
+      <div class="denied-body">${escH(msg)}</div>
+      <a href="index.html" class="btn-home" style="margin-top:.5rem">← Return to Game</a>
+    </div>`;
+}
+
+// ── Main Payment Page ─────────────────────────────────────────
+function renderPayPage(alert = null, paidSoFar = 0){
+  $('loadSpinner')?.remove();
+
+  const paid      = paidSoFar || S.feePaid;
+  const remaining = Math.max(0, S.feeTotal - paid);
+  const isPartial = paid > 0 && remaining > 0;
+  const pct       = Math.min(100, (paid / S.feeTotal) * 100);
+  const amtToPay  = isPartial ? remaining : S.feeTotal;
+
+  // Build alert HTML
+  let alertHtml = '';
+  if(alert === 'partial'){
+    alertHtml = `
+      <div class="banner warning">
+        <span style="flex-shrink:0;font-size:1.1rem">⚠️</span>
+        <div>
+          <div>Partial Payment Detected</div>
+          <div style="font-weight:400;margin-top:.3rem;font-size:.78rem;line-height:1.65">
+            We received <b style="color:var(--text)">${fmtKES(paid)}</b> but <b>${fmtKES(S.feeTotal)}</b> is required.
+            Please send the remaining <b style="color:var(--fire)">${fmtKES(remaining)}</b> using the same M-Pesa steps below, then resubmit.
+          </div>
+          <div class="partial-bar-wrap">
+            <div class="partial-bar" id="pBar" style="width:${pct}%"></div>
+          </div>
+          <div class="partial-row">
+            <span>Paid: ${fmtKES(paid)}</span>
+            <span>Remaining: ${fmtKES(remaining)}</span>
+          </div>
+        </div>
+      </div>`;
+  } else if(alert === 'not_detected'){
+    alertHtml = `
+      <div class="banner error">
+        <span style="flex-shrink:0;font-size:1.1rem">❌</span>
+        <div>
+          <div>Payment Not Detected</div>
+          <div style="font-weight:400;margin-top:.3rem;font-size:.78rem;line-height:1.65">
+            We could not verify your payment. Please double-check your M-Pesa confirmation code and the phone number you paid from, then resubmit.
+          </div>
+        </div>
+      </div>`;
+  }
+
+  $('mainContent').innerHTML = `
+
+    ${stepsHtml(2)}
+
+    ${alertHtml}
+
+    <!-- Withdrawal info -->
+    <div class="amt-display">
+      <div>
+        <div class="amt-label">Approved Withdrawal</div>
+        <div class="amt-value">${fmtKES(S.amount)}</div>
+        <div class="amt-sub">📱 To: ${escH(S.phone)}</div>
+      </div>
+      <div style="font-size:2.6rem;opacity:.4">💸</div>
+    </div>
+
+    <!-- Why the fee -->
+    <div class="card">
+      <div class="card-hdr">⚠️ Phone Verification Required</div>
+      <div class="card-body" style="gap:.7rem">
+        <div style="font-size:.82rem;color:var(--text);line-height:1.75">
+          To confirm ownership of your payout number and protect your withdrawal from fraud,
+          please send a one-time verification fee of
+          <span class="fee-badge">💳 ${fmtKES(amtToPay)}</span>
+          via M-Pesa before your funds are released.
+        </div>
+        <div class="notice">
+          📌 The number you pay <b>from</b> is the number we will send <b>${fmtKES(S.amount)}</b> to.
+          Make sure it is correct before paying.
+        </div>
+      </div>
+    </div>
+
+    <!-- M-Pesa steps -->
+    <div class="card">
+      <div class="card-hdr">📱 M-Pesa Payment Steps</div>
+      <div class="card-body">
+        <div style="font-size:.76rem;color:var(--muted);line-height:1.7">
+          Open <b style="color:var(--text)">M-Pesa</b> → <b style="color:var(--text)">Lipa na M-Pesa</b>
+          → <b style="color:var(--text)">Pay Bill</b>, then enter these details:
+        </div>
+
+        <div class="pay-rows">
+          <div class="pay-row">
+            <span class="pay-row-label">1. Business Number</span>
+            <div class="pay-row-val" style="color:var(--gold)">
+              247247
+              <button class="copy-btn" onclick="_copy('247247',this)">📋 Copy</button>
+            </div>
+          </div>
+
+          <div class="pay-row">
+            <span class="pay-row-label">2. Account Number</span>
+            <div class="pay-row-val" style="color:var(--green)">
+              <span id="acctRefDisp">${escH(S.acctRef)}</span>
+              <button class="copy-btn" onclick="_copy(document.getElementById('acctRefDisp').textContent,this)">📋 Copy</button>
+            </div>
+          </div>
+
+          <div class="pay-row">
+            <span class="pay-row-label">3. Amount</span>
+            <div class="pay-row-val" style="color:var(--fire);font-size:1rem">
+              ${fmtKES(amtToPay)}
+              <button class="copy-btn" onclick="_copy('${amtToPay}',this)">📋 Copy</button>
+            </div>
+          </div>
+
+          <div class="pay-row">
+            <span class="pay-row-label">4. M-Pesa PIN → Send</span>
+            <div class="pay-row-val" style="color:var(--muted);font-size:.8rem">Confirm &amp; send</div>
+          </div>
+        </div>
+
+        <div style="background:rgba(255,107,26,.06);border:1px solid rgba(255,107,26,.15);border-radius:8px;padding:.55rem .85rem;font-size:.72rem;color:var(--fire);line-height:1.6">
+          ⚠️ Use the <b>exact Account Number</b> above — it is unique to your verification and must match.
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirmation form -->
+    <div class="card">
+      <div class="card-hdr">📝 Submit Your M-Pesa Confirmation</div>
+      <div class="card-body">
+
+        <div class="field">
+          <label>M-Pesa Confirmation Code <span style="color:var(--red)">*</span></label>
+          <input type="text" id="fCode" class="upper"
+            placeholder="e.g. RKA1X3Y5ZZ"
+            maxlength="12" inputmode="text"
+            autocomplete="off" autocapitalize="characters"
+            oninput="window._validate()">
+          <span class="field-hint">The alphanumeric code sent to your phone after payment</span>
+        </div>
+
+        <div class="field">
+          <label>Phone Number You Paid From <span style="color:var(--red)">*</span></label>
+          <input type="tel" id="fPhone"
+            placeholder="e.g. 0712 345 678"
+            inputmode="tel" autocomplete="tel"
+            oninput="window._validate()">
+          <span class="field-hint green">⚠️ Your <b>${fmtKES(S.amount)}</b> withdrawal will be sent to <b>this exact number</b></span>
+        </div>
+
+        <div id="fErr" style="display:none;background:rgba(255,68,85,.08);border:1px solid rgba(255,68,85,.22);border-radius:8px;padding:.55rem .85rem;font-size:.76rem;color:var(--red);line-height:1.5"></div>
+
+        <button class="btn-submit" id="submitBtn" onclick="window._submit()" disabled>
+          <span id="submitLbl">Enter confirmation code to continue</span>
+        </button>
+
+        <div style="font-size:.68rem;color:var(--muted);text-align:center;line-height:1.6">
+          🔒 Your payment is verified securely by our admin team
+        </div>
+      </div>
+    </div>
+
+    <a href="index.html" class="btn-home">← Return to Game &nbsp;(you can come back to this later)</a>`;
+
+  // Pre-fill phone if known
+  const phoneEl = $('fPhone');
+  if(phoneEl && S.phone && S.phone !== '—') phoneEl.value = S.phone;
+
+  // Animate partial bar after paint
+  if(alert === 'partial'){
+    requestAnimationFrame(()=> requestAnimationFrame(()=>{
+      const bar = $('pBar');
+      if(bar) bar.style.width = pct + '%';
+    }));
+  }
+}
+
+// ── Waiting / Under Admin Review ──────────────────────────────
+function renderWaiting(){
+  $('loadSpinner')?.remove();
+  $('mainContent').innerHTML = `
+
+    ${stepsHtml(3)}
+
+    <div class="banner warning" style="align-items:center;gap:.65rem">
+      <span class="live-dot"></span>
+      <span>Verification submitted — admin is reviewing your M-Pesa payment</span>
+    </div>
+
+    <div class="amt-display">
+      <div>
+        <div class="amt-label">Approved Withdrawal</div>
+        <div class="amt-value">${fmtKES(S.amount)}</div>
+        <div class="amt-sub">📱 To: ${escH(S.phone)}</div>
+      </div>
+      <div style="font-size:2.5rem;opacity:.4">💸</div>
+    </div>
+
+    <div class="waiting-card">
+      <div class="waiting-icon">⏳</div>
+      <div class="waiting-title">Under Admin Review</div>
+      <div class="waiting-body">
+        Your KSh 200 M-Pesa confirmation code has been submitted successfully.
+        Our admin team will verify your payment and process your withdrawal within
+        <b style="color:var(--text)">30 minutes</b>.
+      </div>
+      <div style="background:rgba(34,217,122,.06);border:1px solid rgba(34,217,122,.15);border-radius:9px;padding:.75rem 1rem;font-size:.78rem;color:var(--green);width:100%;text-align:left;line-height:1.75">
+        ✅ Once confirmed, <b>${fmtKES(S.amount)}</b> will be sent to <b>${escH(S.phone)}</b> automatically.
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;font-size:.7rem;color:var(--muted)">
+        <span class="live-dot"></span>
+        This page updates live — no need to refresh
+      </div>
+    </div>
+
+    <a href="index.html" class="btn-home" id="homeBtn">
+      ← Return to Game &nbsp;(we will notify you when your funds are sent)
+    </a>`;
+}
+
+// ── Success — withdrawal paid out ─────────────────────────────
+function renderSuccess(){
+  $('loadSpinner')?.remove();
+  $('mainContent').innerHTML = `
+
+    ${stepsHtml(4)}
+
+    <div class="success-card">
+      <div class="success-icon">🎉</div>
+      <div class="success-title">Withdrawal Sent!</div>
+      <div class="success-body">
+        Your phone number has been verified and your withdrawal has been processed.
+        Funds are on their way — please allow up to 30 minutes for delivery.
+      </div>
+      <div class="success-detail">
+        📱 Sending to: ${escH(S.phone)}<br>
+        💰 Amount: ${fmtKES(S.amount)}<br>
+        ⏱ Processing: up to 30 minutes<br>
+        🔒 Ref: ${escH(S.acctRef)}
+      </div>
+      <div class="success-note">
+        ⚡ You will receive an M-Pesa SMS once the funds arrive in your account
+      </div>
+      <a href="index.html" class="btn-home" style="width:100%;margin-top:.25rem">← Return to Game</a>
+    </div>`;
+
+  // Update topbar back label
+  const backBtn = $('backBtn');
+  if(backBtn) backBtn.textContent = '← Home';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FORM — validation & submit
+// ═══════════════════════════════════════════════════════════════
+window._validate = ()=>{
+  const code  = ($('fCode')?.value  || '').trim();
+  const phone = ($('fPhone')?.value || '').trim();
+  const btn   = $('submitBtn');
+  const lbl   = $('submitLbl');
+  const err   = $('fErr');
+  if(!btn) return;
+
+  if(!code){
+    btn.disabled = true;
+    if(lbl) lbl.textContent = 'Enter your M-Pesa confirmation code';
+    return;
+  }
+  if(code.length < 6){
+    btn.disabled = true;
+    if(lbl) lbl.textContent = 'Code too short — check your SMS';
+    return;
+  }
+  if(!phone || phone.replace(/\D/g,'').length < 9){
+    btn.disabled = true;
+    if(lbl) lbl.textContent = 'Enter the phone number you paid from';
+    return;
+  }
+
+  btn.disabled = false;
+  if(lbl) lbl.textContent = `🟢 Submit Verification — ${fmtKES(S.feeTotal)}`;
+  if(err) err.style.display = 'none';
+};
+
+window._submit = async ()=>{
+  if(S.submitting) return;
+
+  const code  = ($('fCode')?.value  || '').trim().toUpperCase();
+  const phone = ($('fPhone')?.value || '').trim();
+  const btn   = $('submitBtn');
+  const lbl   = $('submitLbl');
+
+  // Client-side guards
+  if(!code || !phone)                          { showErr('Please fill in all fields.'); return; }
+  if(code.length < 6)                          { showErr('Confirmation code too short — check your M-Pesa SMS.'); return; }
+  if(phone.replace(/\D/g,'').length < 9)       { showErr('Enter a valid Kenyan phone number (e.g. 0712 345 678).'); return; }
+  if(!S.txId || !S.userId)                     { showErr('Session expired — return to the game and use the notification link.'); return; }
+
+  S.submitting = true;
+  if(btn){ btn.disabled = true; btn.classList.add('loading'); }
+  if(lbl){ lbl.textContent = 'Submitting…'; }
+
+  // Fetch latest metadata to merge (avoid overwriting admin fields)
+  const { data:existing } = await sb
+    .from('transactions')
+    .select('metadata')
+    .eq('id', S.txId)
+    .maybeSingle();
+  const prevMeta = existing?.metadata || {};
+
+  // Duplicate guard — prevent resubmitting same code
+  if(prevMeta.verif_code === code && prevMeta.verif_status === 'submitted'){
+    S.submitting = false;
+    if(btn){ btn.disabled = false; btn.classList.remove('loading'); }
+    if(lbl){ lbl.textContent = `🟢 Submit Verification — ${fmtKES(S.feeTotal)}`; }
+    showErr('This code was already submitted — please wait for admin review.');
+    return;
+  }
+
+  const { error } = await sb.from('transactions').update({
+    metadata: {
+      ...prevMeta,
+      payout_phone   : phone,
+      verif_status   : 'submitted',
+      verif_code     : code,
+      verif_phone    : phone,
+      verif_acct_ref : S.acctRef,
+      verif_fee      : S.feeTotal,
+      verif_fee_paid : S.feeTotal,
+      verif_at       : new Date().toISOString(),
+    },
+    updated_at: new Date().toISOString(),
+  }).eq('id', S.txId).eq('user_id', S.userId);
+
+  S.submitting = false;
+
+  if(error){
+    if(btn){ btn.disabled = false; btn.classList.remove('loading'); }
+    if(lbl){ lbl.textContent = `🟢 Submit Verification — ${fmtKES(S.feeTotal)}`; }
+    showErr('Submission failed: ' + error.message + '. Please try again.');
+    return;
+  }
+
+  // Update local state
+  S.phone       = phone;
+  S.verifStatus = 'submitted';
+
+  // Switch to waiting view
+  renderWaiting();
+  toast('✅ Submitted! Our team will review within 30 minutes.', 'w');
+
+  // Wire the home button: clicking it will push a notification back in game.js
+  // via sessionStorage so the user sees a "check withdrawal" prompt on game page
+  _flagReturnNotification();
+};
+
+// ── Flag sessionStorage so game.js shows a notification on return ──
+function _flagReturnNotification(){
+  try {
+    // game.js reads 'df_verif_submitted_txid' on boot and shows a notification
+    sessionStorage.setItem('df_verif_submitted_txid', S.txId);
+    sessionStorage.setItem('df_verif_submitted_amt',  String(S.amount));
+    sessionStorage.setItem('df_verif_submitted_phone', S.phone);
+  } catch(_){}
+}
+
+function showErr(msg){
+  const el = $('fErr');
+  if(el){ el.textContent = msg; el.style.display = 'block'; }
+  toast(msg, 'l');
+}
+
+// ── Start ─────────────────────────────────────────────────────
+boot();
+</script>
+</body>
+</html>

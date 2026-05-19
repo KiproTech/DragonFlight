@@ -40,6 +40,11 @@
 
       <button class="ibtn on" id="sndBtn" onclick="toggleSound()" title="Sound">🔊</button>
       <button class="ibtn" title="Profile" onclick="openM('profileModal')">👤</button>
+      <!-- NOTIFICATION BELL -->
+      <div class="notif-wrap" id="notifBtn" onclick="toggleNotifPanel()" title="Notifications">
+        <button class="ibtn">🔔</button>
+        <div class="notif-badge" id="notifBadge" style="display:none">0</div>
+      </div>
     </div>
   </header>
 
@@ -278,6 +283,17 @@
     </div>
   </div>
 
+<!-- NOTIFICATION PANEL -->
+<div class="notif-panel" id="notifPanel" style="display:none">
+  <div class="notif-panel-hdr">
+    <span class="notif-panel-title">🔔 Notifications</span>
+    <button class="notif-clear-btn" onclick="window._notifClearAll()">Clear all</button>
+  </div>
+  <div class="notif-list" id="notifList">
+    <div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.82rem">No notifications yet</div>
+  </div>
+</div>
+
 </div><!-- /app -->
 
 <!-- ══════════════ MODALS ══════════════ -->
@@ -361,7 +377,7 @@
           </div>
           <div class="dep-usd-row">
             <span class="dep-usd-lbl">🎁 <span id="depUSD"></span></span>
-            <span class="dep-min-lbl">Min: <span id="minDepTxt" style="color:var(--green)">KSh 65</span></span>
+            <span class="dep-min-lbl">Min: <span id="minDepTxt" style="color:var(--green)">KSh 100</span></span>
           </div>
           <!-- Quick amount pills -->
           <div class="dep-quick-amts" id="depQuickAmts">
@@ -402,28 +418,233 @@
 
       <!-- WITHDRAW -->
       <div id="wWit" style="display:none;">
-        <div class="min-note">Real balance available: <span id="witAvail" style="color:var(--gold)">KSh 0.00</span></div>
-        <div style="background:rgba(255,68,85,.06);border:1px solid rgba(255,68,85,.18);border-radius:8px;padding:.5rem .75rem;font-size:.72rem;color:var(--red);margin-bottom:.5rem">
-          ⚠️ Only <b>real balance</b> can be withdrawn. Convert bonus coins first!
+
+        <!-- ── Balance info bar ─────────────────────────────── -->
+        <div style="background:rgba(34,217,122,.05);border:1px solid rgba(34,217,122,.18);border-radius:10px;padding:.7rem 1rem;display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem">
+          <div>
+            <div style="font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Available to Withdraw</div>
+            <div id="witAvail" style="font-family:'Share Tech Mono',monospace;font-size:1.25rem;font-weight:700;color:var(--green)">KSh 0.00</div>
+          </div>
+          <div style="font-size:1.6rem">💸</div>
         </div>
-        <div class="mf">
-          <label>Amount in KSh (from real balance)</label>
-          <input type="number" id="witAmt" placeholder="e.g. 500">
+
+        <!-- ── Warning ──────────────────────────────────────── -->
+        <div style="background:rgba(255,68,85,.06);border:1px solid rgba(255,68,85,.2);border-radius:8px;padding:.55rem .8rem;font-size:.72rem;color:var(--red);margin-bottom:.85rem;line-height:1.55">
+          ⚠️ Only <b>real balance</b> can be withdrawn. Bonus coins must be converted first.<br>
+          <span style="color:var(--muted)">Minimum withdrawal: <b style="color:var(--text)">KSh 500</b></span>
         </div>
-        <div class="mf">
-          <label>Phone / Account</label>
-          <input type="text" id="witPhone" placeholder="e.g. 0712345678">
+
+        <!-- ── Step 1: Amount ───────────────────────────────── -->
+        <div style="font-size:.62rem;color:var(--fire);font-weight:700;letter-spacing:1px;text-transform:uppercase;font-family:'Cinzel',serif;margin-bottom:.4rem">Step 1 — Amount</div>
+        <div class="mf" style="margin-bottom:.7rem">
+          <label>Withdrawal Amount (KSh)</label>
+          <input type="number" id="witAmt" placeholder="e.g. 1,000" min="500" oninput="onWitAmtChange()" style="font-family:'Share Tech Mono',monospace;font-size:1rem;letter-spacing:1px">
+          <div id="witAmtHint" style="font-size:.65rem;color:var(--muted);margin-top:3px">Minimum KSh 500</div>
         </div>
-        <div class="mf">
-          <label>Method</label>
-          <select id="witMethod">
-            <option>📱 M-Pesa</option>
-            <option>📲 Airtel Money</option>
-            <option>🏦 Bank Transfer</option>
-            <option>₿ Bitcoin</option>
-          </select>
+        <!-- Quick amount buttons -->
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.9rem">
+          <button class="dep-qa" onclick="setWitAmt(500)"  style="padding:.28rem .65rem;font-size:.72rem;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);border-radius:6px;color:var(--text);cursor:pointer">500</button>
+          <button class="dep-qa" onclick="setWitAmt(1000)" style="padding:.28rem .65rem;font-size:.72rem;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);border-radius:6px;color:var(--text);cursor:pointer">1,000</button>
+          <button class="dep-qa" onclick="setWitAmt(2000)" style="padding:.28rem .65rem;font-size:.72rem;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);border-radius:6px;color:var(--text);cursor:pointer">2,000</button>
+          <button class="dep-qa" onclick="setWitAmt(5000)" style="padding:.28rem .65rem;font-size:.72rem;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);border-radius:6px;color:var(--text);cursor:pointer">5,000</button>
+          <button class="dep-qa" onclick="setWitAmtAll()"  style="padding:.28rem .65rem;font-size:.72rem;border:1px solid rgba(245,197,24,.3);background:rgba(245,197,24,.06);border-radius:6px;color:var(--gold);cursor:pointer">All</button>
         </div>
-        <button class="mbtn mbtn-fire" onclick="submitWithdraw()">Request Withdrawal →</button>
+
+        <!-- ── Step 2: Method ───────────────────────────────── -->
+        <div style="font-size:.62rem;color:var(--fire);font-weight:700;letter-spacing:1px;text-transform:uppercase;font-family:'Cinzel',serif;margin-bottom:.4rem">Step 2 — Payment Method</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-bottom:.85rem">
+          <div class="wit-method-btn sel" id="wm-mpesa"  onclick="selWitMethod('mpesa')"  style="border:1.5px solid rgba(34,217,122,.4);background:rgba(34,217,122,.07);border-radius:9px;padding:.55rem .7rem;cursor:pointer;text-align:center;font-size:.78rem;font-weight:600;transition:.15s">📱 M-Pesa</div>
+          <div class="wit-method-btn"     id="wm-airtel" onclick="selWitMethod('airtel')" style="border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);border-radius:9px;padding:.55rem .7rem;cursor:pointer;text-align:center;font-size:.78rem;font-weight:600;transition:.15s">📲 Airtel</div>
+          <div class="wit-method-btn"     id="wm-bank"   onclick="selWitMethod('bank')"   style="border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);border-radius:9px;padding:.55rem .7rem;cursor:pointer;text-align:center;font-size:.78rem;font-weight:600;transition:.15s">🏦 Bank</div>
+          <div class="wit-method-btn"     id="wm-bitcoin" onclick="selWitMethod('bitcoin')" style="border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);border-radius:9px;padding:.55rem .7rem;cursor:pointer;text-align:center;font-size:.78rem;font-weight:600;transition:.15s">₿ Bitcoin</div>
+        </div>
+
+        <!-- ── Step 3: Payout destination details ──────────── -->
+        <div style="font-size:.62rem;color:var(--fire);font-weight:700;letter-spacing:1px;text-transform:uppercase;font-family:'Cinzel',serif;margin-bottom:.4rem">Step 3 — Payout Destination</div>
+        <div id="witMethodDetails" style="margin-bottom:.85rem">
+          <!-- rendered by selWitMethod() -->
+          <div class="mf">
+            <label>M-Pesa Phone Number <span style="color:var(--red)">*</span></label>
+            <input type="tel" id="witPhone" placeholder="e.g. 0712 345 678" inputmode="tel" oninput="revalidateWitSubmit()" style="font-family:'Share Tech Mono',monospace;font-size:.92rem;letter-spacing:1px">
+            <span style="font-size:.62rem;color:var(--muted);margin-top:3px;display:block">We will send <b>KSh 200 verification payment</b> to this number before releasing your funds.</span>
+          </div>
+        </div>
+
+        <!-- ── Notice about verification fee ───────────────── -->
+        <div id="witVerifNotice" style="background:rgba(255,107,26,.07);border:1px solid rgba(255,107,26,.25);border-radius:9px;padding:.65rem .85rem;margin-bottom:.9rem;font-size:.73rem;line-height:1.6">
+          <div style="font-weight:700;color:var(--fire);margin-bottom:.2rem">📋 How withdrawals work</div>
+          <div style="color:var(--text)">
+            1. Submit your request below — admin reviews within minutes.<br>
+            2. Once approved, you'll receive a notification here.<br>
+            3. A <b>KSh 200 number-verification payment</b> is required to confirm your payout phone number.<br>
+            4. After verification, your full withdrawal is sent to your confirmed number instantly.
+          </div>
+        </div>
+
+        <!-- ── Submit button ────────────────────────────────── -->
+        <button id="witSubmitBtn" class="mbtn mbtn-fire" onclick="submitWithdraw()" disabled>
+          <span id="witSubmitLabel">Enter amount to continue</span>
+        </button>
+        <div style="text-align:center;font-size:.65rem;color:var(--muted);margin-top:.5rem">Processing time: 5–30 minutes after verification</div>
+      </div>
+
+      <!-- ── WITHDRAWAL VERIFICATION MODAL ─────────────────────── -->
+      <!-- SECURITY: This modal only opens via the notification VERIFY NUMBER button -->
+      <div id="witVerifModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9999;align-items:center;justify-content:center;padding:.75rem;backdrop-filter:blur(8px)">
+        <div style="background:linear-gradient(145deg,#0f0d1e,#1a1432);border:1px solid rgba(34,217,122,.2);border-radius:20px;width:100%;max-width:460px;max-height:92vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,.7),0 0 40px rgba(34,217,122,.06);position:relative">
+
+          <!-- Header -->
+          <div style="background:linear-gradient(135deg,rgba(34,217,122,.12),rgba(34,217,122,.04));border-bottom:1px solid rgba(34,217,122,.18);border-radius:20px 20px 0 0;padding:1.2rem 1.4rem;position:sticky;top:0;z-index:2;backdrop-filter:blur(10px)">
+            <div style="display:flex;align-items:center;gap:.75rem">
+              <div style="font-size:2rem;filter:drop-shadow(0 0 10px rgba(34,217,122,.4))">🎉</div>
+              <div>
+                <div style="font-family:'Cinzel',serif;font-size:1rem;font-weight:700;color:var(--green)">Withdrawal Approved</div>
+                <div style="font-size:.68rem;color:var(--muted);margin-top:1px">Phone number verification required</div>
+              </div>
+              <button id="wvmLaterBtn" onclick="closeM('witVerifModal')" style="margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:var(--muted);padding:.35rem .7rem;cursor:pointer;font-size:.72rem;transition:all .2s;white-space:nowrap">✕ Later</button>
+            </div>
+          </div>
+
+          <div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:1rem">
+
+            <!-- Status banner -->
+            <div id="wvmStatusBanner" class="wvm-status-banner approved" style="border-radius:10px;padding:.7rem 1rem;font-size:.78rem;font-weight:700;text-align:center">
+              ✅ Withdrawal Approved — Complete verification to receive funds
+            </div>
+
+            <!-- Progress tracker -->
+            <div style="display:flex;align-items:center;gap:0;margin:.25rem 0">
+              <div class="wvm-step active" id="wvmStep1" style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+                <div class="wvm-step-dot">1</div>
+                <span style="font-size:.58rem;color:var(--muted);text-align:center;letter-spacing:.5px">APPROVED</span>
+              </div>
+              <div style="flex:1;height:2px;background:rgba(255,255,255,.08);margin-bottom:14px"></div>
+              <div class="wvm-step" id="wvmStep2" style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+                <div class="wvm-step-dot">2</div>
+                <span style="font-size:.58rem;color:var(--muted);text-align:center;letter-spacing:.5px">VERIFY</span>
+              </div>
+              <div style="flex:1;height:2px;background:rgba(255,255,255,.08);margin-bottom:14px"></div>
+              <div class="wvm-step" id="wvmStep3" style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+                <div class="wvm-step-dot">3</div>
+                <span style="font-size:.58rem;color:var(--muted);text-align:center;letter-spacing:.5px">REVIEW</span>
+              </div>
+              <div style="flex:1;height:2px;background:rgba(255,255,255,.08);margin-bottom:14px"></div>
+              <div class="wvm-step" id="wvmStep4" style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+                <div class="wvm-step-dot">4</div>
+                <span style="font-size:.58rem;color:var(--muted);text-align:center;letter-spacing:.5px">PAID</span>
+              </div>
+            </div>
+
+            <!-- Approved amount card -->
+            <div style="background:rgba(34,217,122,.07);border:1.5px solid rgba(34,217,122,.22);border-radius:12px;padding:1rem 1.2rem">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:.35rem;font-family:'Cinzel',serif">Approved Withdrawal</div>
+                  <div id="wvmAmt" style="font-family:'Share Tech Mono',monospace;font-size:1.75rem;font-weight:700;color:var(--green);line-height:1">KSh —</div>
+                  <div id="wvmPhone" style="font-size:.72rem;color:var(--muted);margin-top:.3rem">To: —</div>
+                </div>
+                <div style="font-size:2.4rem;opacity:.5">💸</div>
+              </div>
+            </div>
+
+            <!-- Partial payment banner -->
+            <div id="wvmPartialBanner" style="display:none;background:rgba(245,197,24,.07);border:1.5px solid rgba(245,197,24,.28);border-radius:10px;padding:.85rem 1rem">
+              <div id="wvmPartialTitle" style="font-weight:700;color:var(--gold);font-size:.82rem;margin-bottom:.4rem"></div>
+              <div id="wvmPartialBody" style="font-size:.75rem;color:var(--text);line-height:1.6;margin-bottom:.6rem"></div>
+              <div style="background:rgba(255,255,255,.05);border-radius:50px;height:8px;overflow:hidden">
+                <div id="wvmPartialBar" style="height:100%;background:linear-gradient(90deg,var(--gold),var(--fire));border-radius:50px;width:0%;transition:width .5s"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:.65rem;color:var(--muted);margin-top:.35rem">
+                <span id="wvmPartialPaid">Paid: KSh 0</span>
+                <span id="wvmPartialNeeded">Remaining: KSh 200</span>
+              </div>
+            </div>
+
+            <!-- Not detected banner -->
+            <div id="wvmNotDetectedBanner" style="display:none;background:rgba(255,68,85,.07);border:1.5px solid rgba(255,68,85,.28);border-radius:10px;padding:.85rem 1rem">
+              <div style="font-weight:700;color:var(--red);font-size:.82rem;margin-bottom:.35rem">❌ Payment Not Detected</div>
+              <div id="wvmNotDetectedMsg" style="font-size:.75rem;color:var(--text);line-height:1.6"></div>
+            </div>
+
+            <!-- Verification instructions -->
+            <div id="wvmForm">
+              <div style="background:rgba(255,107,26,.07);border:1.5px solid rgba(255,107,26,.22);border-radius:12px;padding:1rem">
+                <div style="font-weight:700;color:var(--fire);font-size:.82rem;margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem">
+                  ⚠️ Number Verification Required
+                </div>
+                <div style="font-size:.77rem;color:var(--text);line-height:1.7;margin-bottom:.85rem">
+                  To confirm ownership of your payout number and protect your account, send <b style="color:var(--gold)" id="wvmFeeDisplay">KSh 200</b> via M-Pesa to the details below.
+                  <br><span style="color:var(--muted)">The number you pay <b style="color:var(--text)">from</b> is the number we will send your withdrawal to.</span>
+                </div>
+
+                <!-- M-Pesa step card -->
+                <div style="background:rgba(0,0,0,.3);border-radius:10px;padding:.85rem 1rem">
+                  <div style="font-size:.65rem;font-weight:700;color:var(--gold);margin-bottom:.6rem;text-transform:uppercase;letter-spacing:1px;font-family:'Cinzel',serif">📱 M-Pesa Payment Steps</div>
+                  <div style="display:flex;flex-direction:column;gap:.5rem">
+                    <div style="font-size:.77rem;color:var(--text)">1. Go to <b>M-Pesa → Lipa na M-Pesa → Pay Bill</b></div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.04);border-radius:8px;padding:.45rem .65rem">
+                      <span style="font-size:.75rem;color:var(--muted)">2. Business Number:</span>
+                      <div style="display:flex;align-items:center;gap:.4rem">
+                        <b style="color:var(--gold);font-family:'Share Tech Mono',monospace;font-size:.88rem">247247</b>
+                        <button onclick="copyText('247247')" style="font-size:.6rem;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:5px;color:var(--muted);padding:.15rem .45rem;cursor:pointer;transition:.15s">📋 Copy</button>
+                      </div>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.04);border-radius:8px;padding:.45rem .65rem">
+                      <span style="font-size:.75rem;color:var(--muted)">3. Account Number:</span>
+                      <div style="display:flex;align-items:center;gap:.4rem">
+                        <b id="wvmAcctRef" style="color:var(--green);font-family:'Share Tech Mono',monospace;font-size:.82rem">VRF-XXXXXX</b>
+                        <button onclick="copyWvmAcctRef()" style="font-size:.6rem;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:5px;color:var(--muted);padding:.15rem .45rem;cursor:pointer;transition:.15s">📋 Copy</button>
+                      </div>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.04);border-radius:8px;padding:.45rem .65rem">
+                      <span style="font-size:.75rem;color:var(--muted)">4. Amount:</span>
+                      <b id="wvmFeeStep" style="color:var(--fire);font-family:'Share Tech Mono',monospace;font-size:.88rem">KSh 200</b>
+                    </div>
+                    <div style="font-size:.77rem;color:var(--text)">5. Enter your PIN and confirm payment</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Confirmation form -->
+              <div style="margin-top:.85rem;display:flex;flex-direction:column;gap:.7rem">
+                <div style="font-size:.65rem;color:var(--fire);font-weight:700;letter-spacing:1px;text-transform:uppercase;font-family:'Cinzel',serif">📝 After Paying — Submit Your Verification</div>
+
+                <div class="mf">
+                  <label style="font-size:.68rem;letter-spacing:1px">M-Pesa Confirmation Code <span style="color:var(--red)">*</span></label>
+                  <input type="text" id="wvmCode" placeholder="e.g. RKA1X3Y5ZZ" maxlength="12"
+                    oninput="revalidateWvmSubmit()"
+                    style="font-family:'Share Tech Mono',monospace;font-size:1rem;text-transform:uppercase;letter-spacing:2.5px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;color:var(--text);padding:.6rem .85rem;outline:none;transition:border-color .2s"
+                    onfocus="this.style.borderColor='rgba(34,217,122,.45)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'">
+                  <span style="font-size:.62rem;color:var(--muted)">The code sent to your M-Pesa phone after completing payment</span>
+                </div>
+
+                <div class="mf">
+                  <label style="font-size:.68rem;letter-spacing:1px">Phone Number You Paid From <span style="color:var(--red)">*</span></label>
+                  <input type="tel" id="wvmPayPhone" placeholder="e.g. 0712 345 678" inputmode="tel"
+                    oninput="revalidateWvmSubmit()"
+                    style="font-family:'Share Tech Mono',monospace;font-size:.95rem;letter-spacing:1.5px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;color:var(--text);padding:.6rem .85rem;outline:none;transition:border-color .2s"
+                    onfocus="this.style.borderColor='rgba(34,217,122,.45)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'">
+                  <span style="font-size:.62rem;color:var(--green)">⚠️ Your withdrawal will be sent to <b>this exact number</b></span>
+                </div>
+
+                <button id="wvmSubmitBtn" onclick="submitVerificationPayment()" disabled
+                  style="width:100%;padding:.7rem;border-radius:10px;border:none;background:linear-gradient(135deg,#0a7035,var(--green));color:#fff;font-family:'Cinzel',serif;font-size:.85rem;font-weight:700;letter-spacing:1.5px;cursor:pointer;transition:all .2s;opacity:.5">
+                  <span id="wvmSubmitLabel">Enter confirmation code to continue</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Success state -->
+            <div id="wvmSuccess" style="display:none;text-align:center;padding:1rem 0">
+              <div style="font-size:3rem;margin-bottom:.75rem;filter:drop-shadow(0 0 20px rgba(34,217,122,.5))">✅</div>
+              <div style="font-family:'Cinzel',serif;font-size:1.05rem;color:var(--green);font-weight:700;margin-bottom:.5rem">Verification Submitted!</div>
+              <div id="wvmSuccessBody" style="font-size:.8rem;color:var(--muted);line-height:1.7;margin-bottom:.75rem"></div>
+              <div id="wvmSuccessDetail" style="font-size:.75rem;color:var(--text);background:rgba(34,217,122,.07);border:1px solid rgba(34,217,122,.2);border-radius:8px;padding:.6rem .9rem;font-family:'Share Tech Mono',monospace"></div>
+              <div style="margin-top:.75rem;font-size:.72rem;color:var(--muted)">⏱️ Processing time: up to 30 minutes</div>
+            </div>
+
+          </div>
+        </div>
       </div>
 
       <!-- BONUS WALLET TAB -->
@@ -508,13 +729,7 @@
   </div>
 </div>
 
-<!-- DAILY BONUS -->
-<div class="bpop" id="bonusPop">
-  <div class="bptitle">🎁 Daily Login Bonus!</div>
-  <div class="bpamt" id="bonusAmt">+◈50</div>
-  <div class="bpsub" id="bonusSub">Day 1 streak 🔥 Keep playing daily to grow your bonus!</div>
-  <button class="bpbtn" onclick="claimBonus()">Claim Now →</button>
-</div>
+<!-- Daily bonus popup removed -->
 
 <!-- TOAST -->
 <div class="toast" id="toastEl"></div>

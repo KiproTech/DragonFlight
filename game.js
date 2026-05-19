@@ -302,6 +302,12 @@ async function loadUser(){
     refLink.value=`https://dragonflight.bet/r/${u.referral_code}`;
   updateBalDisp();renderProfileSection();loadUserTx();subscribeBalance();updVIP();
   sbSafe(()=>sb.from('users').update({last_login:new Date().toISOString()}).eq('id',G.userId),'lastLogin');
+  // Start withdrawal update listener (in case a pending withdrawal was approved while offline)
+  _subscribeWithdrawalUpdates();
+  // Check for any pending-approved withdrawals that need verification
+  _checkPendingWithdrawalVerification();
+  // Return-from-verification notification
+  _checkVerifReturnNotification();
   if(!u.bonus_claimed){
     const {data:bdata}=await sbSafe(()=>sb.rpc('claim_signup_bonus',{p_user_id:G.userId}),'signupBonus');
     if(bdata?.success){G.balBonus+=50;updateBalDisp();toast2('🎉 Welcome! +50 bonus coins added!','w');}
@@ -1617,21 +1623,519 @@ window.submitDeposit=async()=>{
   _fn('depDetails',e=>e.innerHTML='');if(btn)btn.disabled=true;if(lbl)lbl.textContent='Enter amount to continue';
   G.depAcctRef=genRef();loadUserTx();
 };
-window.submitWithdraw=async()=>{
-  const amt=parseFloat(_el('witAmt')?.value);
-  if(!amt||amt<1){toast2('Enter a valid amount in KSh','l');return;}
-  if(amt>G.balReal){toast2(`Insufficient balance — ${fmtKES(parseFloat(G.balReal))} available`,'l');return;}
-  if(isDemo()){toast2('Withdrawals not available in demo mode','l');return;}
-  if(!G.userId){toast2('Please log in','l');return;}
-  const phone=_el('witPhone')?.value;const method=_el('witMethod')?.value;
-  const {error}=await sbSafe(()=>sb.from('transactions').insert({
-    user_id:G.userId,type:'withdrawal',amount:amt,currency:'KES',
-    method,phone_number:phone,status:'pending',description:'Withdrawal request',
-  }),'submitWithdraw');
-  if(error){toast2('Failed to submit withdrawal: '+error.message,'l');return;}
-  toast2(`✅ Withdrawal of ${fmtKES(parseFloat(amt))} submitted ⏳`,'g');
-  closeM('walletModal');loadUserTx();
+// ─────────────────────────────────────────────────────────────
+//  WITHDRAWAL SYSTEM  (v7 — admin-gated + phone verification)
+// ─────────────────────────────────────────────────────────────
+
+// Track selected withdrawal method globally
+G.witMethod = 'mpesa';
+
+window.selWitMethod = m => {
+  G.witMethod = m;
+  document.querySelectorAll('.wit-method-btn').forEach(b=>{
+    b.style.border='1px solid rgba(255,255,255,.1)';
+    b.style.background='rgba(255,255,255,.03)';
+  });
+  const sel = _el('wm-'+m);
+  if(sel){sel.style.border='1.5px solid rgba(34,217,122,.4)';sel.style.background='rgba(34,217,122,.07)';}
+  // Render destination detail input
+  const detail = _el('witMethodDetails');
+  if(!detail) return;
+  if(m==='mpesa'){
+    detail.innerHTML=`<div class="mf">
+      <label>M-Pesa Phone Number <span style="color:var(--red)">*</span></label>
+      <input type="tel" id="witPhone" placeholder="e.g. 0712 345 678" inputmode="tel" oninput="revalidateWitSubmit()" style="font-family:'Share Tech Mono',monospace;font-size:.92rem;letter-spacing:1px">
+      <span style="font-size:.62rem;color:var(--muted);margin-top:3px;display:block">The phone used to <b>request</b> (verification happens after approval)</span>
+    </div>`;
+  } else if(m==='airtel'){
+    detail.innerHTML=`<div class="mf">
+      <label>Airtel Money Number <span style="color:var(--red)">*</span></label>
+      <input type="tel" id="witPhone" placeholder="e.g. 0733 456 789" inputmode="tel" oninput="revalidateWitSubmit()" style="font-family:'Share Tech Mono',monospace;font-size:.92rem;letter-spacing:1px">
+    </div>`;
+  } else if(m==='bank'){
+    detail.innerHTML=`<div class="mf">
+      <label>Bank Account Number <span style="color:var(--red)">*</span></label>
+      <input type="text" id="witPhone" placeholder="e.g. 0123456789" oninput="revalidateWitSubmit()" style="font-family:'Share Tech Mono',monospace;font-size:.92rem;letter-spacing:1px">
+    </div>
+    <div class="mf"><label>Bank Name</label><input type="text" id="witBankName" placeholder="e.g. Equity Bank" oninput="revalidateWitSubmit()"></div>`;
+  } else if(m==='bitcoin'){
+    detail.innerHTML=`<div class="mf">
+      <label>Bitcoin Wallet Address <span style="color:var(--red)">*</span></label>
+      <input type="text" id="witPhone" placeholder="e.g. 1A1zP1eP5Q..." oninput="revalidateWitSubmit()" style="font-family:'Share Tech Mono',monospace;font-size:.68rem;letter-spacing:.5px">
+    </div>`;
+  }
+  revalidateWitSubmit();
 };
+
+window.setWitAmt = v => {
+  const inp = _el('witAmt');
+  if(inp){ inp.value = v; onWitAmtChange(); }
+};
+window.setWitAmtAll = () => {
+  setWitAmt(Math.floor(G.balReal));
+};
+window.onWitAmtChange = () => {
+  const amt = parseFloat(_el('witAmt')?.value)||0;
+  const hint = _el('witAmtHint');
+  if(hint){
+    if(!amt) hint.textContent='Minimum KSh 200';
+    else if(amt<200) hint.textContent='⚠️ Minimum is KSh 200';
+    else if(amt>G.balReal) hint.textContent=`⚠️ Exceeds balance (${fmtKES(G.balReal)})`;
+    else hint.textContent=`You will receive: ${fmtKES(amt)} (after verification)`;
+  }
+  revalidateWitSubmit();
+};
+window.revalidateWitSubmit = () => {
+  const btn = _el('witSubmitBtn');
+  const lbl = _el('witSubmitLabel');
+  if(!btn) return;
+  const amt = parseFloat(_el('witAmt')?.value)||0;
+  const phone = (_el('witPhone')?.value||'').trim();
+  if(!amt){ btn.disabled=true; if(lbl)lbl.textContent='Enter amount to continue'; return; }
+  if(amt<200){ btn.disabled=true; if(lbl)lbl.textContent='Minimum withdrawal is KSh 200'; return; }
+  if(amt>G.balReal){ btn.disabled=true; if(lbl)lbl.textContent='Amount exceeds available balance'; return; }
+  if(!phone){ btn.disabled=true; if(lbl)lbl.textContent='Enter your payout account / phone'; return; }
+  btn.disabled=false;
+  if(lbl) lbl.textContent=`Submit Withdrawal — ${fmtKES(amt)} →`;
+};
+
+window.submitWithdraw = async () => {
+  const amt = parseFloat(_el('witAmt')?.value)||0;
+  if(amt<200){ toast2('Minimum withdrawal is KSh 200','l'); return; }
+  if(amt>G.balReal){ toast2(`Insufficient balance — ${fmtKES(G.balReal)} available`,'l'); return; }
+  if(isDemo()){ toast2('Withdrawals not available in demo mode','l'); return; }
+  if(!G.userId){ toast2('Please log in','l'); return; }
+
+  const phone  = (_el('witPhone')?.value||'').trim();
+  const method = G.witMethod || 'mpesa';
+  const txRef  = 'WIT-'+Date.now().toString(36).toUpperCase()+'-'+G.userId.substring(0,5).toUpperCase();
+
+  const btn = _el('witSubmitBtn');
+  const lbl = _el('witSubmitLabel');
+  if(btn){ btn.disabled=true; }
+  if(lbl){ lbl.textContent='Submitting…'; }
+
+  const {error} = await sbSafe(()=>sb.from('transactions').insert({
+    user_id    : G.userId,
+    type       : 'withdrawal',
+    amount     : amt,
+    currency   : 'KES',
+    method,
+    phone_number: phone,
+    status     : 'pending',
+    reference  : txRef,
+    description: `Withdrawal request — ${method.toUpperCase()} — ${phone}`,
+    metadata   : {
+      payout_phone : phone,
+      method,
+      requested_at : new Date().toISOString(),
+      verif_fee    : 200,
+      verif_status : 'pending',
+    },
+  }),'submitWithdraw');
+
+  if(btn){ btn.disabled=false; }
+  if(lbl){ lbl.textContent=`Submit Withdrawal — ${fmtKES(amt)} →`; }
+
+  if(error){
+    toast2('Failed to submit: '+error.message,'l');
+    return;
+  }
+
+  // Deduct balance immediately as reserved (pending)
+  // Real deduction is done by admin on approval
+  toast2(`✅ Withdrawal of ${fmtKES(amt)} submitted! Admin will review shortly.`,'w');
+  closeM('walletModal');
+  _el('witAmt')&&(_el('witAmt').value='');
+  loadUserTx();
+  // Subscribe to this withdrawal for real-time approval notification
+  _subscribeWithdrawalUpdates();
+};
+
+// ── Real-time withdrawal status listener ─────────────────────
+let _witSubChannel = null;
+function _subscribeWithdrawalUpdates(){
+  if(!G.userId) return;
+  if(_witSubChannel) return; // already subscribed
+  _witSubChannel = sb.channel('wit-updates-'+G.userId)
+    .on('postgres_changes',{
+      event:'UPDATE', schema:'public', table:'transactions',
+      filter:`user_id=eq.${G.userId}`,
+    }, payload=>{
+      const tx = payload.new;
+      if(tx.type!=='withdrawal') return;
+      const meta = tx.metadata||{};
+
+      if(tx.status==='completed'){
+        const notifKey = 'wv-notif-'+tx.id;
+
+        if(meta.verif_status==='pending' && !sessionStorage.getItem(notifKey)){
+          // Admin just approved — add notification with VERIFY NUMBER button
+          sessionStorage.setItem(notifKey, '1');
+          const nId = _notifAdd({
+            icon:'🎉', title:'Withdrawal Approved!',
+            msg:`Your withdrawal of ${fmtKES(tx.amount)} has been approved. Click the button below to verify your phone number and receive your funds.`,
+            type:'success', txId:tx.id, persistent:true,
+            action:{ label:'VERIFY NUMBER' },
+          });
+          _notifActionMap[nId] = ()=> openVerificationFromNotif(tx.id, nId);
+
+          // Open notification panel to draw attention
+          const panel = _el('notifPanel');
+          if(panel) panel.style.display = 'block';
+          sfxCashout();
+          toast2('🎉 Withdrawal approved! Click the 🔔 notification to verify.','w');
+          loadUserTx();
+
+        } else if(meta.verif_status==='verified'){
+          // Final payout confirmed
+          const paidKey = 'wv-paid-'+tx.id;
+          if(!sessionStorage.getItem(paidKey)){
+            sessionStorage.setItem(paidKey,'1');
+            _notifAdd({
+              icon:'✅', title:'Withdrawal Sent!',
+              msg:`Your withdrawal of ${fmtKES(tx.amount)} has been sent to ${meta.payout_phone||'your account'}. Please allow up to 30 minutes.`,
+              type:'success',
+            });
+          }
+          // Update modal if it's open
+          if(_el('witVerifModal')?.style.display==='flex'){
+            WVM.state='success';
+            _wvmRender();
+          }
+          toast2(`✅ Withdrawal sent to ${meta.payout_phone||'your account'}!`,'w');
+          sfxCashout();
+          refreshUserBalance();
+          loadUserTx();
+
+        } else if(meta.verif_status==='submitted'){
+          // Admin acknowledged submission — waiting for final review
+          toast2('🔐 Verification submitted — admin is reviewing your payment','i');
+          loadUserTx();
+        }
+
+      } else if(tx.status==='failed'){
+        if(meta.verif_code || meta.verif_status==='submitted' || meta.verif_status==='partial' || meta.verif_status==='rejected'){
+          // Verif rejection — update the modal state if open
+          _wvmHandleAdminFeedback(tx);
+          const isPartial = meta.verif_status==='partial' || (parseFloat(meta.verif_fee_paid||0) > 0 && parseFloat(meta.verif_fee_paid||0) < 200);
+          const nId = _notifAdd({
+            icon: isPartial ? '⚠️' : '❌',
+            title: isPartial ? 'Partial Payment Detected' : 'Verification Issue',
+            msg: isPartial
+              ? `Partial payment detected (${fmtKES(meta.verif_fee_paid||0)}). Please pay the remaining ${fmtKES(200-(parseFloat(meta.verif_fee_paid)||0))} to complete verification.`
+              : `Payment not detected for your verification. Please check your M-Pesa confirmation code and try again.`,
+            type:'warning', txId:tx.id, persistent:true,
+            action:{ label:'VERIFY NUMBER' },
+          });
+          _notifActionMap[nId] = ()=> openVerificationFromNotif(tx.id, nId);
+        } else {
+          // Withdrawal request rejected (before verification)
+          _notifAdd({
+            icon:'❌', title:'Withdrawal Rejected',
+            msg:`Your withdrawal of ${fmtKES(tx.amount)} was rejected. ${tx.reject_reason||'Please contact support.'}`,
+            type:'error',
+          });
+          toast2(`❌ Withdrawal rejected: ${tx.reject_reason||'Not approved'}. Funds returned.`,'l');
+          refreshUserBalance();
+        }
+        loadUserTx();
+      }
+    }).subscribe();
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────
+ *  WITHDRAWAL VERIFICATION MODAL — full state machine
+ *  States: 'approved' | 'partial' | 'not_detected' | 'success'
+ * ─────────────────────────────────────────────────────────────
+ */
+
+const WVM = {
+  txId       : null,
+  withdrawAmt: 0,
+  payoutPhone: '',
+  acctRef    : '',
+  feeRequired: 200,   // total verification fee
+  feePaid    : 0,     // what we've confirmed paid so far
+  state      : 'approved', // 'approved'|'partial'|'not_detected'|'success'
+};
+
+/** Open the modal and populate with tx details */
+function _showWithdrawalApprovedModal(tx){
+  const meta        = tx.metadata || {};
+  WVM.txId          = tx.id;
+  WVM.withdrawAmt   = parseFloat(tx.amount) || 0;
+  WVM.payoutPhone   = meta.payout_phone || tx.phone_number || '—';
+  WVM.acctRef       = 'VRF-' + (tx.reference||'').replace('WIT-','').substring(0,8);
+  WVM.feeRequired   = 200;
+  WVM.feePaid       = parseFloat(meta.verif_fee_paid || 0);
+  WVM.state         = WVM.feePaid > 0 && WVM.feePaid < WVM.feeRequired ? 'partial' : 'approved';
+
+  // Also keep legacy G references for copyWvmAcctRef
+  G._pendingVerifTxId  = tx.id;
+  G._pendingVerifAmt   = WVM.withdrawAmt;
+  G._pendingVerifAcctRef = WVM.acctRef;
+
+  _wvmRender();
+  _el('witVerifModal').style.display = 'flex';
+  sfxCashout();
+  toast2('🎉 Withdrawal approved! Complete verification to receive funds.', 'w');
+}
+
+/** Master render — wires every element to the current WVM state */
+function _wvmRender(){
+  // Amount + phone
+  _set('wvmAmt',   fmtKES(WVM.withdrawAmt));
+  _set('wvmPhone', `To: ${WVM.payoutPhone}`);
+  _set('wvmAmtHint', fmtKES(WVM.withdrawAmt));
+
+  // Account ref
+  const acctEl = _el('wvmAcctRef');
+  if(acctEl) acctEl.textContent = WVM.acctRef;
+
+  // Fee amount in instructions
+  const remaining = Math.max(0, WVM.feeRequired - WVM.feePaid);
+  _set('wvmFeeDisplay', fmtKES(remaining));
+  _set('wvmFeeStep',    fmtKES(remaining));
+
+  // Status banner
+  const banner = _el('wvmStatusBanner');
+  if(banner){
+    const map = {
+      approved    : { cls:'approved', txt:'✅ Withdrawal Approved — Complete verification to receive funds' },
+      partial     : { cls:'pending',  txt:'⚠️ Partial Payment Detected — Please pay the remaining amount' },
+      not_detected: { cls:'rejected', txt:'❌ Payment Not Detected — Please check and resubmit' },
+      success     : { cls:'success',  txt:'🎉 Verification Complete — Funds being sent!' },
+    };
+    const s = map[WVM.state] || map.approved;
+    banner.className = 'wvm-status-banner ' + s.cls;
+    banner.textContent = s.txt;
+  }
+
+  // Step tracker
+  _wvmSetStep(WVM.state === 'success' ? 4 : WVM.state === 'not_detected' ? 2 : 2);
+
+  // Partial banner
+  const partBanner = _el('wvmPartialBanner');
+  if(partBanner){
+    if(WVM.state === 'partial' && WVM.feePaid > 0){
+      partBanner.style.display = '';
+      const pct = Math.min(100, (WVM.feePaid / WVM.feeRequired) * 100);
+      _set('wvmPartialTitle', '⚠️ Partial Payment Detected');
+      _set('wvmPartialBody',
+        `We received ${fmtKES(WVM.feePaid)} but ${fmtKES(WVM.feeRequired)} is required. ` +
+        `Please pay the remaining ${fmtKES(remaining)} to complete verification.`);
+      _set('wvmPartialPaid',   `Paid: ${fmtKES(WVM.feePaid)}`);
+      _set('wvmPartialNeeded', `Remaining: ${fmtKES(remaining)}`);
+      const bar = _el('wvmPartialBar');
+      if(bar) setTimeout(()=>bar.style.width = pct+'%', 80);
+    } else {
+      partBanner.style.display = 'none';
+    }
+  }
+
+  // Not-detected banner
+  const ndBanner = _el('wvmNotDetectedBanner');
+  if(ndBanner){
+    ndBanner.style.display = WVM.state === 'not_detected' ? '' : 'none';
+    if(WVM.state === 'not_detected'){
+      _set('wvmNotDetectedMsg',
+        WVM.feePaid > 0
+          ? `We received ${fmtKES(WVM.feePaid)} but need ${fmtKES(remaining)} more. Please send the remaining amount using the steps above, then resubmit.`
+          : 'We could not verify your payment. Please double-check the confirmation code and the phone number used, then resubmit.'
+      );
+    }
+  }
+
+  // Form + success visibility
+  const form    = _el('wvmForm');
+  const success = _el('wvmSuccess');
+  const laterBtn= _el('wvmLaterBtn');
+  if(WVM.state === 'success'){
+    if(form)    form.style.display = 'none';
+    if(success) success.style.display = '';
+    _wvmSetStep(4);
+    _set('wvmSuccessBody',
+      `Your payment has been received. Funds will be sent to <b>${WVM.payoutPhone}</b> within <b>30 minutes</b>.`);
+    _set('wvmSuccessDetail',
+      `Withdrawal: ${fmtKES(WVM.withdrawAmt)} → ${WVM.payoutPhone}`);
+    if(laterBtn) laterBtn.textContent = 'Done — Close';
+  } else {
+    if(form)    form.style.display = '';
+    if(success) success.style.display = 'none';
+    if(laterBtn) laterBtn.textContent = "I'll do this later — Close";
+  }
+
+  // Reset form fields
+  const codeEl  = _el('wvmCode');
+  const phoneEl = _el('wvmPayPhone');
+  if(codeEl)  codeEl.value  = '';
+  if(phoneEl) phoneEl.value = WVM.payoutPhone !== '—' ? WVM.payoutPhone : '';
+  revalidateWvmSubmit();
+}
+
+/** Update step tracker active state (step 1–4) */
+function _wvmSetStep(activeStep){
+  [1,2,3,4].forEach(n=>{
+    const el = _el('wvmStep'+n);
+    if(!el) return;
+    el.classList.remove('active','done');
+    if(n <  activeStep) el.classList.add('done');
+    if(n === activeStep) el.classList.add('active');
+  });
+}
+
+window.copyWvmAcctRef = ()=>{
+  const val = _el('wvmAcctRef')?.textContent || WVM.acctRef || '';
+  navigator.clipboard?.writeText(val).catch(()=>{});
+  toast2('Account reference copied!','i');
+};
+
+window.revalidateWvmSubmit = ()=>{
+  const btn  = _el('wvmSubmitBtn');
+  const lbl  = _el('wvmSubmitLabel');
+  if(!btn) return;
+  if(WVM.state === 'success'){ btn.disabled=true; btn.style.opacity='.4'; return; }
+
+  const code  = (_el('wvmCode')?.value   || '').trim();
+  const phone = (_el('wvmPayPhone')?.value || '').trim();
+  const remaining = Math.max(0, WVM.feeRequired - WVM.feePaid);
+
+  if(!code){
+    btn.disabled=true; btn.style.opacity='.4';
+    if(lbl) lbl.textContent = 'Enter M-Pesa confirmation code';
+    return;
+  }
+  if(code.length < 6){
+    btn.disabled=true; btn.style.opacity='.4';
+    if(lbl) lbl.textContent = 'Code too short — check again';
+    return;
+  }
+  if(!phone){
+    btn.disabled=true; btn.style.opacity='.4';
+    if(lbl) lbl.textContent = 'Enter the phone number you paid from';
+    return;
+  }
+  btn.disabled = false; btn.style.opacity='1';
+  if(lbl) lbl.textContent = WVM.state === 'partial'
+    ? `🟢 Submit — Paid Remaining ${fmtKES(remaining)}`
+    : `🟢 Submit Verification`;
+};
+
+window.submitVerificationPayment = async ()=>{
+  const code  = (_el('wvmCode')?.value   || '').trim().toUpperCase();
+  const phone = (_el('wvmPayPhone')?.value || '').trim();
+  if(!code || !phone){ toast2('Fill in both fields','l'); return; }
+  if(!G.userId || !WVM.txId){ toast2('Session error — refresh and try again','l'); return; }
+
+  const btn = _el('wvmSubmitBtn');
+  const lbl = _el('wvmSubmitLabel');
+  if(btn){ btn.disabled=true; }
+  if(lbl){ lbl.textContent = 'Submitting…'; }
+
+  // Merge with any existing metadata to preserve partial-payment history
+  const { data: existing } = await sbSafe(()=>
+    sb.from('transactions').select('metadata').eq('id', WVM.txId).maybeSingle(), 'wvmFetch');
+  const prevMeta = existing?.metadata || {};
+
+  const { error } = await sbSafe(()=>sb.from('transactions').update({
+    metadata: {
+      ...prevMeta,
+      payout_phone   : phone,
+      verif_status   : 'submitted',
+      verif_code     : code,
+      verif_phone    : phone,
+      verif_acct_ref : WVM.acctRef,
+      verif_fee      : WVM.feeRequired,
+      verif_fee_paid : WVM.feeRequired,  // user claims full payment
+      verif_at       : new Date().toISOString(),
+    },
+    updated_at: new Date().toISOString(),
+  }).eq('id', WVM.txId).eq('user_id', G.userId), 'submitVerif');
+
+  if(error){
+    toast2('Submission failed: '+error.message, 'l');
+    if(btn){ btn.disabled=false; }
+    if(lbl){ lbl.textContent = 'Submit Verification ✔'; }
+    return;
+  }
+
+  // Update payout phone on the user record for reference
+  WVM.payoutPhone = phone;
+  WVM.state = 'success';
+  _wvmRender();
+  _wvmSetStep(4);
+
+  toast2('✅ Verification submitted! Funds will be sent to '+phone+' within 30 minutes.','w');
+  sfxCashout();
+  loadUserTx();
+};
+
+/**
+ * Called by admin subscription when verif is REJECTED or has partial payment.
+ * Updates the modal state without closing it — and adds a new notification.
+ */
+function _wvmHandleAdminFeedback(tx){
+  const meta = tx.metadata || {};
+  const paid = parseFloat(meta.verif_fee_paid || meta.verif_remaining ? (200-(meta.verif_remaining||0)) : 0);
+
+  WVM.txId        = tx.id;
+  WVM.withdrawAmt = parseFloat(tx.amount) || WVM.withdrawAmt;
+  WVM.feePaid     = paid;
+  WVM.acctRef     = meta.verif_acct_ref || WVM.acctRef;
+
+  if(tx.status === 'failed'){
+    // Determine state from metadata
+    if(meta.verif_status === 'partial' || (paid > 0 && paid < WVM.feeRequired)){
+      WVM.state = 'partial';
+    } else {
+      WVM.state = 'not_detected';
+    }
+    _wvmRender();
+
+    // Only open modal if it was already open (user was on verif page)
+    // Otherwise the notification button handles entry
+    if(_el('witVerifModal')?.style.display === 'flex'){
+      // Already open — just re-render
+    } else {
+      // Add a new notification so user can re-enter
+      const notifMsg = WVM.state === 'partial'
+        ? `Partial payment received (${fmtKES(paid)}). Please pay the remaining ${fmtKES(WVM.feeRequired - paid)} and resubmit.`
+        : `Payment not detected for your withdrawal of ${fmtKES(WVM.withdrawAmt)}. Please resubmit with the correct M-Pesa confirmation code.`;
+      const nId = _notifAdd({
+        icon:'⚠️', title:WVM.state==='partial'?'Partial Payment Detected':'Verification Issue',
+        msg:notifMsg, type:'warning', txId:tx.id, persistent:true,
+        action:{ label:'VERIFY NUMBER' },
+      });
+      _notifActionMap[nId] = ()=> openVerificationFromNotif(tx.id, nId);
+      // Open panel
+      const panel = _el('notifPanel');
+      if(panel) panel.style.display='block';
+    }
+
+    const msg = WVM.state === 'partial'
+      ? `⚠️ Partial payment — please pay remaining ${fmtKES(WVM.feeRequired - paid)}`
+      : '❌ Payment not detected — please resubmit';
+    toast2(msg, 'l');
+  } else if(tx.status === 'completed' && meta.verif_status === 'verified'){
+    WVM.state = 'success';
+    _wvmRender();
+    const nKey = 'wv-paid-'+tx.id;
+    if(!sessionStorage.getItem(nKey)){
+      sessionStorage.setItem(nKey,'1');
+      _notifAdd({
+        icon:'✅', title:'Withdrawal Sent!',
+        msg:`Your withdrawal of ${fmtKES(WVM.withdrawAmt)} has been sent to ${meta.payout_phone||WVM.payoutPhone}. Allow up to 30 minutes.`,
+        type:'success',
+      });
+    }
+    toast2(`🎉 Funds sent to ${meta.payout_phone||WVM.payoutPhone}!`,'w');
+    sfxCashout();
+    refreshUserBalance();
+    loadUserTx();
+  }
+}
 window.saveLimits=async()=>{
   if(!G.userId){toast2('Please log in','l');return;}
   const {error}=await sbSafe(()=>sb.from('users').update({
@@ -1856,6 +2360,230 @@ window.toast2=(msg,t)=>{
 };
 
 // ─────────────────────────────────────────────────────────────
+//  NOTIFICATION SYSTEM
+//  Persistent, realtime, mobile-friendly notification panel.
+//  The verification page can ONLY be opened via a notification
+//  button — never automatically, never from Deposit/Wallet.
+// ─────────────────────────────────────────────────────────────
+
+// Notification store — persisted to sessionStorage for refresh recovery
+let _notifications = [];
+try{ _notifications = JSON.parse(sessionStorage.getItem('df_notifs')||'[]'); }catch(_){}
+
+function _notifSave(){
+  try{ sessionStorage.setItem('df_notifs', JSON.stringify(_notifications.slice(0,50))); }catch(_){}
+}
+
+function _notifUpdateBadge(){
+  const unread = _notifications.filter(n=>!n.read).length;
+  const badge = _el('notifBadge');
+  if(badge){
+    badge.textContent = unread || '';
+    badge.style.display = unread ? 'flex' : 'none';
+  }
+}
+
+/**
+ * Add a notification to the panel.
+ * type: 'info'|'success'|'warning'|'error'
+ * action: optional {label, fn} for action button
+ */
+function _notifAdd({ icon='🔔', title, msg, type='info', action=null, txId=null, persistent=false }){
+  const id = 'n-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
+  const notif = { id, icon, title, msg, type, action, txId, persistent, read:false, time:Date.now() };
+  _notifications.unshift(notif);
+  _notifSave();
+  _renderNotifList();
+  _notifUpdateBadge();
+  return id;
+}
+
+function _notifMarkRead(id){
+  const n = _notifications.find(x=>x.id===id);
+  if(n){ n.read=true; _notifSave(); _notifUpdateBadge(); _renderNotifList(); }
+}
+
+window._notifClearAll = ()=>{
+  _notifications = _notifications.filter(n=>n.persistent);
+  _notifSave();
+  _renderNotifList();
+  _notifUpdateBadge();
+};
+
+function _renderNotifList(){
+  const el = _el('notifList');
+  if(!el) return;
+  const items = _notifications;
+  if(!items.length){
+    el.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.82rem">No notifications yet</div>';
+    return;
+  }
+  el.innerHTML = items.map(n=>{
+    const timeStr = _notifTimeAgo(n.time);
+    const typeCol = n.type==='success'?'var(--green)':n.type==='warning'?'var(--gold)':n.type==='error'?'var(--red)':'var(--blue)';
+    const actionBtn = n.action
+      ? `<button class="notif-action-btn" onclick="window._notifAction('${n.id}')" style="margin-top:.5rem;background:linear-gradient(135deg,rgba(34,217,122,.15),rgba(34,217,122,.08));border:1.5px solid rgba(34,217,122,.4);color:var(--green);border-radius:8px;padding:.4rem .85rem;font-size:.73rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:'Cinzel',serif;letter-spacing:.5px;transition:all .2s">
+          <span style="font-size:.9rem">🟢</span> ${escHtml(n.action.label)}
+        </button>`
+      : '';
+    return `<div class="notif-item${n.read?'':' notif-unread'}" id="ni-${n.id}" onclick="window._notifMarkRead('${n.id}')">
+      <div class="notif-icon" style="color:${typeCol}">${n.icon}</div>
+      <div class="notif-body">
+        <div class="notif-title">${escHtml(n.title)}</div>
+        <div class="notif-msg">${n.msg}</div>
+        ${actionBtn}
+        <div class="notif-time">${timeStr}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _notifTimeAgo(ts){
+  const diff = Math.round((Date.now()-ts)/60000);
+  if(diff<1) return 'just now';
+  if(diff<60) return diff+'m ago';
+  const hrs = Math.round(diff/60);
+  if(hrs<24) return hrs+'h ago';
+  return Math.round(hrs/24)+'d ago';
+}
+
+window.toggleNotifPanel = ()=>{
+  const panel = _el('notifPanel');
+  if(!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen){
+    // Mark all as read when opening
+    _notifications.forEach(n=>n.read=true);
+    _notifSave();
+    _notifUpdateBadge();
+    _renderNotifList();
+  }
+};
+
+// Close notif panel when clicking outside
+document.addEventListener('click', e=>{
+  const panel = _el('notifPanel');
+  const btn = _el('notifBtn');
+  if(panel && panel.style.display!=='none' && !panel.contains(e.target) && !btn?.contains(e.target)){
+    panel.style.display = 'none';
+  }
+});
+
+// Action handlers — stored by notif id
+const _notifActionMap = {};
+window._notifAction = id=>{
+  const fn = _notifActionMap[id];
+  if(fn) fn();
+};
+window._notifMarkRead = _notifMarkRead;
+
+// ─────────────────────────────────────────────────────────────
+//  VERIFICATION PAGE ACCESS TOKEN
+//  The verification modal can ONLY be opened via the notification
+//  button. A session token guards the entry point.
+// ─────────────────────────────────────────────────────────────
+let _wvmAccessToken = null;   // set only by notification button
+let _wvmSourceTxId  = null;   // which withdrawal this verification is for
+
+/**
+ * Called ONLY by the notification "VERIFY NUMBER" button.
+ * Sets the access token and opens the modal.
+ */
+window.openVerificationFromNotif = (txId, notifId)=>{
+  if(!txId){ toast2('Verification link expired — check notifications','l'); return; }
+  if(notifId) _notifMarkRead(notifId);
+
+  // Set one-time session tokens so the verification page can authenticate
+  const token = 'notif-' + txId + '-' + Date.now();
+  sessionStorage.setItem('df_verif_token', token);
+  sessionStorage.setItem('df_verif_txid',  txId);
+  sessionStorage.setItem('df_verif_uid',   G.userId || '');
+
+  // Redirect to the verification page — include withdrawal_id as URL param fallback
+  location.href = 'verification.html?withdrawal_id=' + encodeURIComponent(txId);
+};
+
+async function _fetchAndOpenVerifModal(txId){
+  if(!_wvmAccessToken){ toast2('Access denied — use the notification button','l'); return; }
+  const {data:tx} = await sbSafe(()=>
+    sb.from('transactions').select('*').eq('id',txId).eq('user_id',G.userId).maybeSingle(),'fetchVerifTx');
+  if(!tx){ toast2('Withdrawal record not found','l'); return; }
+  const meta = tx.metadata||{};
+  if(meta.verif_status==='verified'){
+    toast2('This withdrawal has already been fully processed','i');
+    return;
+  }
+  _showWithdrawalApprovedModal(tx);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  WITHDRAWAL RECOVERY CHECK
+//  On page load, check if there are approved withdrawals waiting.
+//  Instead of auto-opening the modal, add a notification with
+//  a VERIFY NUMBER button that the user must explicitly click.
+// ─────────────────────────────────────────────────────────────
+async function _checkPendingWithdrawalVerification(){
+  if(!G.userId) return;
+  const {data:pendingVerif} = await sbSafe(()=>
+    sb.from('transactions')
+      .select('*')
+      .eq('user_id', G.userId)
+      .eq('type','withdrawal')
+      .eq('status','completed')
+      .order('created_at',{ascending:false})
+      .limit(10),'checkPendingVerif');
+
+  if(!pendingVerif?.length) return;
+
+  pendingVerif.forEach(tx=>{
+    const meta = tx.metadata||{};
+    const notifKey = 'wv-notif-'+tx.id;
+
+    if(meta.verif_status==='pending' || meta.verif_status==='submitted'){
+      // Check if we already added this notification this session
+      if(sessionStorage.getItem(notifKey)) return;
+      sessionStorage.setItem(notifKey, '1');
+
+      if(meta.verif_status==='submitted'){
+        // Already submitted — waiting for admin final approval
+        const nId = _notifAdd({
+          icon:'🔐', title:'Verification Under Review',
+          msg:`Your KSh 200 verification payment for withdrawal of ${fmtKES(tx.amount)} has been submitted and is being reviewed by our team. You'll be notified once processed.`,
+          type:'info', persistent:false,
+        });
+        return;
+      }
+
+      // Awaiting verification payment — add notification with button
+      const nId = _notifAdd({
+        icon:'🎉', title:'Withdrawal Approved!',
+        msg:`Your withdrawal of ${fmtKES(tx.amount)} has been approved. To complete the process, click the button below to verify your phone number.`,
+        type:'success', txId:tx.id, persistent:true,
+        action:{ label:'VERIFY NUMBER' },
+      });
+      _notifActionMap[nId] = ()=> openVerificationFromNotif(tx.id, nId);
+
+    } else if(meta.verif_status==='verified'){
+      // Already paid out — informational
+      const nKey2 = 'wv-paid-'+tx.id;
+      if(!sessionStorage.getItem(nKey2)){
+        sessionStorage.setItem(nKey2,'1');
+        _notifAdd({
+          icon:'✅', title:'Withdrawal Sent!',
+          msg:`Your withdrawal of ${fmtKES(tx.amount)} has been sent to ${meta.payout_phone||'your account'}.`,
+          type:'success',
+        });
+      }
+    }
+  });
+
+  // Render any restored notifications from sessionStorage
+  _renderNotifList();
+  _notifUpdateBadge();
+}
+
+// ─────────────────────────────────────────────────────────────
 //  BOOT
 // ─────────────────────────────────────────────────────────────
 async function boot(){
@@ -1886,6 +2614,10 @@ Editor.  Key RPCs needed:
   renderLB();
   updBtns();
 
+  // Initialize notification panel from sessionStorage
+  _renderNotifList();
+  _notifUpdateBadge();
+
   await loadUser();
 
   // ── Start watchdog ──────────────────────────────────────────
@@ -1900,3 +2632,50 @@ Editor.  Key RPCs needed:
 }
 
 boot();
+// ─────────────────────────────────────────────────────────────
+//  RETURN-FROM-VERIFICATION NOTIFICATION
+//  Verification.html sets sessionStorage flags when the user
+//  submits their M-Pesa code and taps "Return to Game".
+//  On boot we detect those flags and show a persistent
+//  "Verification submitted — we'll notify you" notification.
+// ─────────────────────────────────────────────────────────────
+function _checkVerifReturnNotification(){
+  try{
+    const txId  = sessionStorage.getItem('df_verif_submitted_txid');
+    const amt   = sessionStorage.getItem('df_verif_submitted_amt');
+    const phone = sessionStorage.getItem('df_verif_submitted_phone');
+
+    if(!txId) return;
+
+    // Clear flags — single use
+    sessionStorage.removeItem('df_verif_submitted_txid');
+    sessionStorage.removeItem('df_verif_submitted_amt');
+    sessionStorage.removeItem('df_verif_submitted_phone');
+
+    // Don't add duplicate notification this session
+    const notifKey = 'wv-return-notif-' + txId;
+    if(sessionStorage.getItem(notifKey)) return;
+    sessionStorage.setItem(notifKey, '1');
+
+    // Add "under review" notification with a re-open button
+    const nId = _notifAdd({
+      icon      : '🔐',
+      title     : 'Verification Submitted',
+      msg       : `Your KSh 200 verification payment for withdrawal of ${fmtKES(parseFloat(amt)||0)} has been submitted. We'll notify you here once your funds are sent to ${phone||'your account'}.`,
+      type      : 'info',
+      persistent: true,
+      txId      : txId,
+      action    : { label : 'VIEW STATUS' },
+    });
+
+    // Action re-opens the verification page via session token
+    _notifActionMap[nId] = ()=> openVerificationFromNotif(txId, nId);
+
+    // Open the notification panel briefly to draw attention
+    const panel = _el('notifPanel');
+    if(panel){ panel.style.display = 'block'; }
+    setTimeout(()=>{ if(panel) panel.style.display = 'none'; }, 4000);
+
+    toast2('🔐 Verification submitted — we\'ll notify you when your funds are sent.', 'i');
+  } catch(_){}
+}

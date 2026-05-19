@@ -981,3 +981,114 @@ input:checked+.tgl-sl::before{transform:translateX(13px);background:var(--green)
   font-weight:700;text-align:center
 }
 .mode-indicator-bar.real-mode{display:block}
+/* ── NOTIFICATION SYSTEM ─────────────────────────────────────── */
+.notif-wrap{position:relative;display:inline-flex;align-items:center}
+.notif-badge{
+  position:absolute;top:-5px;right:-5px;
+  background:var(--red);color:#fff;border-radius:50%;
+  min-width:17px;height:17px;display:flex;align-items:center;justify-content:center;
+  font-size:.57rem;font-weight:700;pointer-events:none;border:1.5px solid var(--deep);
+  animation:notifPop .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes notifPop{from{transform:scale(0)}to{transform:scale(1)}}
+.notif-panel{
+  position:fixed;top:54px;right:8px;width:340px;max-width:calc(100vw - 16px);
+  background:var(--panel2);border:1px solid rgba(245,197,24,.18);border-radius:14px;
+  box-shadow:0 16px 48px rgba(0,0,0,.7);z-index:500;overflow:hidden;
+  animation:notifSlideIn .2s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes notifSlideIn{from{opacity:0;transform:translateY(-10px) scale(.97)}to{opacity:1;transform:none}}
+.notif-panel-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.75rem 1rem;border-bottom:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.02);
+}
+.notif-panel-title{font-family:'Cinzel',serif;font-size:.8rem;font-weight:700;color:var(--gold)}
+.notif-clear-btn{
+  background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:6px;
+  color:var(--muted);font-size:.68rem;padding:.18rem .5rem;cursor:pointer;
+  font-family:'Rajdhani',sans-serif;transition:all .15s;
+}
+.notif-clear-btn:hover{color:var(--text);border-color:rgba(255,255,255,.25)}
+.notif-list{max-height:400px;overflow-y:auto}
+.notif-item{
+  display:flex;gap:.75rem;padding:.75rem 1rem;border-bottom:1px solid rgba(255,255,255,.05);
+  transition:background .15s;
+}
+.notif-item:last-child{border-bottom:none}
+.notif-item:hover{background:rgba(255,255,255,.03)}
+.notif-unread{background:rgba(245,197,24,.04)}
+.notif-icon{font-size:1.1rem;flex-shrink:0;margin-top:1px}
+.notif-body{flex:1;min-width:0}
+.notif-title{font-size:.8rem;font-weight:700;color:var(--text);margin-bottom:2px}
+.notif-msg{font-size:.73rem;color:var(--muted);line-height:1.5}
+.notif-time{font-size:.62rem;color:var(--muted);margin-top:3px;opacity:.7}
+.notif-action-btn{
+  display:inline-block;margin-top:.45rem;
+  padding:.28rem .65rem;border-radius:7px;border:1px solid rgba(245,197,24,.35);
+  background:rgba(245,197,24,.08);color:var(--gold);font-size:.72rem;font-weight:700;
+  font-family:'Rajdhani',sans-serif;cursor:pointer;transition:all .15s;
+}
+.notif-action-btn:hover{background:rgba(245,197,24,.18)}
+/* ── WVM VERIFICATION MODAL STYLES ──────────────────────────── */
+.wvm-status-banner{padding:.7rem 1rem;border-radius:10px;font-size:.78rem;font-weight:700;text-align:center;transition:all .3s}
+.wvm-status-banner.approved{background:rgba(34,217,122,.1);border:1.5px solid rgba(34,217,122,.3);color:var(--green)}
+.wvm-status-banner.pending{background:rgba(245,197,24,.1);border:1.5px solid rgba(245,197,24,.3);color:var(--gold)}
+.wvm-status-banner.rejected{background:rgba(255,68,85,.1);border:1.5px solid rgba(255,68,85,.3);color:var(--red)}
+.wvm-status-banner.success{background:rgba(34,217,122,.12);border:1.5px solid rgba(34,217,122,.4);color:var(--green)}
+
+.wvm-step{position:relative;cursor:default}
+.wvm-step-dot{
+  width:26px;height:26px;border-radius:50%;
+  background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.12);
+  color:var(--muted);font-size:.72rem;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .35s;font-family:'Cinzel',serif;
+}
+.wvm-step.active .wvm-step-dot{
+  background:rgba(34,217,122,.2);border-color:var(--green);color:var(--green);
+  box-shadow:0 0 14px rgba(34,217,122,.35);
+}
+.wvm-step.done .wvm-step-dot{
+  background:rgba(34,217,122,.15);border-color:rgba(34,217,122,.5);color:var(--green);
+}
+.wvm-step.done .wvm-step-dot::after{content:'✓';font-size:.7rem}
+.wvm-step.done .wvm-step-dot>span{display:none}
+
+/* Pulsing verification badge for unread withdrawals */
+@keyframes wvmPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(34,217,122,.4)}
+  50%{box-shadow:0 0 0 8px rgba(34,217,122,0)}
+}
+.notif-action-btn.verify-btn{
+  background:linear-gradient(135deg,rgba(34,217,122,.2),rgba(34,217,122,.08));
+  border-color:rgba(34,217,122,.5);color:var(--green);
+  padding:.4rem 1rem;font-size:.78rem;letter-spacing:.5px;
+  animation:wvmPulse 2s ease-in-out infinite;
+}
+.notif-action-btn.verify-btn:hover{
+  background:linear-gradient(135deg,rgba(34,217,122,.3),rgba(34,217,122,.15));
+  animation:none;
+}
+
+/* WVM submit button enabled state */
+#wvmSubmitBtn:not([disabled]){opacity:1;box-shadow:0 4px 20px rgba(34,217,122,.25)}
+#wvmSubmitBtn:not([disabled]):hover{transform:translateY(-1px);box-shadow:0 6px 25px rgba(34,217,122,.35)}
+
+/* Notification panel improvements */
+.notif-panel{
+  position:fixed;top:56px;right:.6rem;width:340px;
+  background:var(--panel2);border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;z-index:8000;
+  box-shadow:0 20px 60px rgba(0,0,0,.6);
+  animation:notifSlideIn .2s cubic-bezier(.34,1.56,.64,1);
+}
+@media(max-width:400px){
+  .notif-panel{width:calc(100vw - 1.2rem);right:.6rem;left:.6rem}
+}
+
+/* Responsive WVM modal */
+@media(max-width:500px){
+  #witVerifModal > div{border-radius:16px;max-height:96vh}
+  #witVerifModal > div > div:first-child{border-radius:16px 16px 0 0}
+}
