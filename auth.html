@@ -22,7 +22,7 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .mountain{position:fixed;bottom:0;left:0;right:0;height:220px;background:linear-gradient(180deg,transparent,rgba(100,40,10,.1));clip-path:polygon(0 100%,0 65%,8% 32%,16% 58%,24% 18%,32% 48%,40% 8%,50% 42%,58% 10%,66% 40%,74% 14%,82% 44%,90% 22%,96% 50%,100% 32%,100% 100%);pointer-events:none;z-index:0}
 .dragon-bg{position:fixed;right:-60px;top:50%;transform:translateY(-55%);opacity:.035;z-index:0;font-size:26rem;line-height:1;pointer-events:none;animation:dfloat 9s ease-in-out infinite}
 @keyframes dfloat{0%,100%{transform:translateY(-55%)}50%{transform:translateY(-52%)}}
-.wrap{position:relative;z-index:10;width:100%;max-width:480px;padding:1.2rem}
+.wrap{position:relative;z-index:10;width:100%;max-width:460px;padding:1.2rem}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:22px;padding:2.2rem 2rem;backdrop-filter:blur(20px);box-shadow:0 40px 80px rgba(0,0,0,.65),0 0 0 1px rgba(245,197,24,.04);animation:cardIn .5s cubic-bezier(.34,1.56,.64,1) both}
 @keyframes cardIn{from{opacity:0;transform:translateY(28px) scale(.96)}to{opacity:1;transform:none}}
 .logo{text-align:center;margin-bottom:1.6rem}
@@ -36,7 +36,6 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .tab.active{background:rgba(245,197,24,.12);color:var(--gold);border:1px solid rgba(245,197,24,.22)}
 .form{display:none;flex-direction:column;gap:.85rem}
 .form.active{display:flex}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
 .field{display:flex;flex-direction:column;gap:4px}
 .field label{font-size:.65rem;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;font-family:'Cinzel',serif}
 .field input,.field select{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.95rem;font-weight:500;padding:.58rem .85rem;outline:none;transition:all .2s;width:100%}
@@ -46,17 +45,21 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .field input.err{border-color:rgba(255,68,85,.5)}
 .ferr{font-size:.68rem;color:var(--red);display:none;margin-top:1px}
 .ferr.show{display:block}
-/* ── Password field wrapper with eye toggle ── */
+/* input hint below field */
+.fhint{font-size:.65rem;color:var(--muted);margin-top:2px;letter-spacing:.3px}
+/* password wrap */
 .pwd-wrap{position:relative;display:flex;align-items:center}
-.pwd-wrap input{width:100%;padding-right:2.6rem}
-.eye-btn{
-  position:absolute;right:.7rem;background:none;border:none;cursor:pointer;
-  color:var(--muted);font-size:1rem;line-height:1;padding:.2rem;
-  transition:color .2s;display:flex;align-items:center;justify-content:center;
-  outline:none;-webkit-tap-highlight-color:transparent
-}
+.pwd-wrap input{flex:1;padding-right:2.6rem!important}
+.eye-btn{position:absolute;right:.6rem;background:none;border:none;padding:.2rem;cursor:pointer;color:var(--muted);transition:color .2s;line-height:0;flex-shrink:0;outline:none;-webkit-tap-highlight-color:transparent}
 .eye-btn:hover{color:var(--gold)}
-.eye-btn svg{pointer-events:none;display:block}
+/* phone prefix */
+.phone-wrap{display:flex;gap:6px}
+.phone-prefix{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.95rem;font-weight:600;padding:.58rem .75rem;width:90px;text-align:center;flex-shrink:0;cursor:default}
+.phone-wrap input{flex:1}
+/* strength bar */
+.pwd-bar-wrap{height:3px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden}
+.pwd-bar{height:100%;border-radius:3px;width:0;transition:all .3s}
+/* currency card */
 .currency-card{background:rgba(34,217,122,.06);border:1px solid rgba(34,217,122,.2);border-radius:9px;padding:.6rem .85rem;display:none;align-items:center;gap:10px;animation:fadeUp .3s ease}
 .currency-card.show{display:flex}
 @keyframes fadeUp{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
@@ -64,22 +67,16 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .cc-info{flex:1}
 .cc-cur{font-size:.85rem;font-weight:600;color:var(--green)}
 .cc-min{font-size:.68rem;color:rgba(34,217,122,.7)}
-.pwd-bar-wrap{height:3px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden;display:none}
-.pwd-bar-wrap.show{display:block}
-.pwd-bar{height:100%;border-radius:3px;width:0;transition:all .3s}
-/* ── Password show/hide wrapper ── */
-.pwd-wrap{position:relative;display:flex;align-items:center}
-.pwd-wrap input{flex:1;padding-right:2.6rem!important}
-.eye-btn{
-  position:absolute;right:.6rem;
-  background:none;border:none;padding:.2rem;cursor:pointer;
-  color:var(--muted);transition:color .2s;line-height:0;flex-shrink:0
-}
-.eye-btn:hover{color:var(--gold)}
+/* age warn */
 .age-warn{background:rgba(255,107,26,.07);border:1px solid rgba(255,107,26,.18);border-radius:9px;padding:.6rem .85rem;font-size:.76rem;color:rgba(245,197,24,.85);display:flex;align-items:center;gap:7px;line-height:1.45}
 .terms{display:flex;align-items:flex-start;gap:9px;font-size:.8rem;color:var(--muted);line-height:1.5}
 .terms input{margin-top:3px;accent-color:var(--gold);flex-shrink:0}
 .terms a{color:var(--gold);text-decoration:none}
+/* input type toggle (email vs phone) */
+.input-toggle{display:flex;gap:6px;margin-bottom:.1rem}
+.itog-btn{flex:1;padding:.38rem .5rem;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.09);border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:.75rem;font-weight:600;letter-spacing:1px;color:var(--muted);cursor:pointer;transition:all .18s;text-transform:uppercase}
+.itog-btn.on{background:rgba(245,197,24,.1);border-color:rgba(245,197,24,.3);color:var(--gold)}
+/* submit */
 .sub-btn{width:100%;padding:.85rem;border-radius:11px;border:none;font-family:'Cinzel',serif;font-size:.9rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;background:linear-gradient(135deg,#c8720d,var(--fire));color:#fff;box-shadow:0 4px 22px rgba(255,107,26,.28);transition:all .22s;position:relative;overflow:hidden}
 .sub-btn:hover{transform:translateY(-1px);box-shadow:0 6px 30px rgba(255,107,26,.42)}
 .sub-btn:disabled{opacity:.65;cursor:not-allowed;transform:none}
@@ -105,7 +102,6 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 .contact-note{font-size:.65rem;color:var(--muted);letter-spacing:.5px}
 @media(max-width:480px){
   .card{padding:1.6rem 1.2rem}
-  .row2{grid-template-columns:1fr}
   .logo-title{font-size:1.2rem}
   body{padding:1rem 0 2rem}
   .contact-links{flex-direction:column;align-items:center}
@@ -134,20 +130,25 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 
   <!-- ── LOGIN ── -->
   <form class="form active" id="loginForm" onsubmit="doLogin(event)">
+
     <div class="field">
-      <label>Email Address</label>
-      <input type="email" id="lEmail" placeholder="your@email.com" required autocomplete="email">
+      <label>Phone Number or Email</label>
+      <input type="text" id="lIdentifier" placeholder="e.g. 0712345678 or you@email.com"
+        required autocomplete="username" oninput="detectLoginType(this.value,'lIdentifierHint')">
+      <span class="fhint" id="lIdentifierHint"></span>
+      <span class="ferr" id="lErr">Incorrect credentials. Try again.</span>
     </div>
+
     <div class="field">
       <label>Password</label>
       <div class="pwd-wrap">
         <input type="password" id="lPass" placeholder="••••••••" required autocomplete="current-password">
         <button type="button" class="eye-btn" onclick="togglePwd('lPass',this)" tabindex="-1" aria-label="Show password">
-          <svg id="eye-lPass" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </div>
-      <span class="ferr" id="lErr">Invalid email or password</span>
     </div>
+
     <button type="submit" class="sub-btn" id="lBtn">Enter the Realm</button>
     <button type="button" class="forgot-link" onclick="showForgot()">Forgot password?</button>
   </form>
@@ -157,18 +158,20 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
     <div style="text-align:center;margin-bottom:.4rem">
       <span style="font-size:1.6rem">🔑</span>
       <div style="font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold);margin-top:.3rem">Reset Password</div>
-      <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;line-height:1.5">Enter your email and we'll send a reset link</div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem;line-height:1.5">We'll send a reset link to your email</div>
     </div>
     <div class="field">
-      <label>Email Address</label>
-      <input type="email" id="fEmail" placeholder="your@email.com" required autocomplete="email">
-      <span class="ferr" id="fErr"></span>
+      <label>Phone Number or Email</label>
+      <input type="text" id="fIdentifier" placeholder="e.g. 0712345678 or you@email.com"
+        required autocomplete="username" oninput="detectLoginType(this.value,'fIdentifierHint')">
+      <span class="fhint" id="fIdentifierHint"></span>
+      <span class="ferr" id="fErr">No account found. Check and try again.</span>
     </div>
     <button type="submit" class="sub-btn" id="fBtn">Send Reset Link 🔑</button>
     <button type="button" class="forgot-link" onclick="showLogin()">← Back to Sign In</button>
   </form>
 
-  <!-- ── SET NEW PASSWORD (after clicking email reset link) ── -->
+  <!-- ── SET NEW PASSWORD ── -->
   <form class="form" id="newPassForm" onsubmit="doNewPassword(event)">
     <div style="text-align:center;margin-bottom:.4rem">
       <span style="font-size:1.6rem">🛡️</span>
@@ -179,19 +182,18 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
       <label>New Password</label>
       <div class="pwd-wrap">
         <input type="password" id="npPass" placeholder="At least 8 characters" required minlength="8"
-          oninput="pwdStrength(this.value)" autocomplete="new-password">
-        <button type="button" class="eye-btn" onclick="togglePwd('npPass',this)" tabindex="-1" aria-label="Show password">
+          oninput="pwdStrength(this.value,'pwdBar2')" autocomplete="new-password">
+        <button type="button" class="eye-btn" onclick="togglePwd('npPass',this)" tabindex="-1">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </div>
-      <div class="pwd-bar-wrap show" id="npPwdWrap"><div class="pwd-bar" id="pwdBar2"></div></div>
-      <span class="ferr" id="npErr">Minimum 8 characters</span>
+      <div class="pwd-bar-wrap"><div class="pwd-bar" id="pwdBar2"></div></div>
     </div>
     <div class="field">
       <label>Confirm New Password</label>
       <div class="pwd-wrap">
         <input type="password" id="npPass2" placeholder="Repeat password" required autocomplete="new-password">
-        <button type="button" class="eye-btn" onclick="togglePwd('npPass2',this)" tabindex="-1" aria-label="Show password">
+        <button type="button" class="eye-btn" onclick="togglePwd('npPass2',this)" tabindex="-1">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </div>
@@ -202,29 +204,30 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 
   <!-- ── REGISTER ── -->
   <form class="form" id="registerForm" onsubmit="doRegister(event)">
-    <div class="row2">
-      <div class="field">
-        <label>Username</label>
-        <input type="text" id="rUser" placeholder="DragonRider" required minlength="3" maxlength="20">
-        <span class="ferr" id="rUserErr">3–20 characters</span>
-      </div>
-      <div class="field">
-        <label>Date of Birth</label>
-        <input type="date" id="rDob" required>
-        <span class="ferr" id="rDobErr">Must be 18+</span>
-      </div>
-    </div>
+
+    <!-- Username -->
     <div class="field">
-      <label>Email Address</label>
-      <input type="email" id="rEmail" placeholder="your@email.com" required autocomplete="email">
-      <span class="ferr" id="rEmailErr">Enter a valid email</span>
+      <label>Username</label>
+      <input type="text" id="rUser" placeholder="DragonRider" required minlength="3" maxlength="20" autocomplete="username">
+      <span class="ferr" id="rUserErr">3–20 characters, no spaces</span>
     </div>
+
+    <!-- Phone / Email (same as sign-in) -->
+    <div class="field">
+      <label>Phone Number / Email Address</label>
+      <input type="text" id="rIdentifier" placeholder="e.g. 0712345678 or you@email.com"
+        required autocomplete="username" oninput="detectLoginType(this.value,'rIdentifierHint')">
+      <span class="fhint" id="rIdentifierHint"></span>
+      <span class="ferr" id="rIdentifierErr">Enter a valid phone number or email</span>
+    </div>
+
+    <!-- Country -->
     <div class="field">
       <label>Country</label>
       <select id="rCountry" required onchange="onCountry(this.value)">
         <option value="">— Select your country —</option>
         <optgroup label="East Africa">
-          <option value="KE">🇰🇪 Kenya</option>
+          <option value="KE" selected>🇰🇪 Kenya</option>
           <option value="UG">🇺🇬 Uganda</option>
           <option value="TZ">🇹🇿 Tanzania</option>
           <option value="RW">🇷🇼 Rwanda</option>
@@ -249,41 +252,50 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
         </optgroup>
       </select>
     </div>
-    <div class="currency-card" id="ccCard">
+
+    <!-- Currency info card -->
+    <div class="currency-card show" id="ccCard">
       <span class="cc-flag" id="ccFlag">🇰🇪</span>
       <div class="cc-info">
         <div class="cc-cur" id="ccCur">Currency: KES</div>
         <div class="cc-min" id="ccMin">Minimum deposit: KES 65 (≈ $0.50)</div>
       </div>
     </div>
+
+    <!-- Password -->
     <div class="field">
       <label>Password</label>
       <div class="pwd-wrap">
         <input type="password" id="rPass" placeholder="At least 8 characters" required minlength="8"
-          oninput="pwdStrength(this.value)" autocomplete="new-password">
-        <button type="button" class="eye-btn" onclick="togglePwd('rPass',this)" tabindex="-1" aria-label="Show password">
+          oninput="pwdStrength(this.value,'pwdBar')" autocomplete="new-password">
+        <button type="button" class="eye-btn" onclick="togglePwd('rPass',this)" tabindex="-1">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </div>
-      <div class="pwd-bar-wrap show" id="pwdWrap"><div class="pwd-bar" id="pwdBar"></div></div>
+      <div class="pwd-bar-wrap"><div class="pwd-bar" id="pwdBar"></div></div>
       <span class="ferr" id="rPassErr">Minimum 8 characters</span>
     </div>
+
+    <!-- Repeat Password -->
     <div class="field">
-      <label>Confirm Password</label>
+      <label>Repeat Password</label>
       <div class="pwd-wrap">
         <input type="password" id="rPass2" placeholder="Repeat password" required autocomplete="new-password">
-        <button type="button" class="eye-btn" onclick="togglePwd('rPass2',this)" tabindex="-1" aria-label="Show password">
+        <button type="button" class="eye-btn" onclick="togglePwd('rPass2',this)" tabindex="-1">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </div>
       <span class="ferr" id="rPass2Err">Passwords do not match</span>
     </div>
+
     <div class="age-warn">⚠️ You must be <strong style="margin:0 3px">18+</strong> to register. Gambling may be subject to local laws.</div>
+
     <div class="terms">
       <input type="checkbox" id="termsChk" required>
-      <label for="termsChk">I confirm I am 18+ and agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>. I understand this involves real money wagering.</label>
+      <label for="termsChk">I am 18+ and agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.</label>
     </div>
-    <button type="submit" class="sub-btn" id="rBtn">Create My Account</button>
+
+    <button type="submit" class="sub-btn" id="rBtn">Create My Account 🐉</button>
   </form>
 
   <div class="trust">
@@ -314,36 +326,38 @@ body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(
 
 <div class="toast" id="toast"></div>
 
-<script type="module">
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-const sb = createClient(
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const sb = supabase.createClient(
   'https://rwtezncoukiekayxuxje.supabase.co',
   'sb_publishable_9JwkSoI9zm2oXu6tvZDRaw_2ebdCWtE'
 );
 
+// ── Country / currency map ───────────────────────────────────
 const COUNTRIES = {
-  KE:{cur:'KES',flag:'🇰🇪',min:65,   sym:'KES '},
-  UG:{cur:'UGX',flag:'🇺🇬',min:1850, sym:'UGX '},
-  TZ:{cur:'TZS',flag:'🇹🇿',min:1350, sym:'TZS '},
-  RW:{cur:'RWF',flag:'🇷🇼',min:675,  sym:'RWF '},
-  ET:{cur:'ETB',flag:'🇪🇹',min:29,   sym:'ETB '},
-  NG:{cur:'NGN',flag:'🇳🇬',min:800,  sym:'₦'},
-  GH:{cur:'GHS',flag:'🇬🇭',min:7.5,  sym:'GH₵'},
-  SN:{cur:'XOF',flag:'🇸🇳',min:300,  sym:'CFA '},
-  ZA:{cur:'ZAR',flag:'🇿🇦',min:9.5,  sym:'R'},
-  ZM:{cur:'ZMW',flag:'🇿🇲',min:13.5, sym:'ZMW '},
-  ZW:{cur:'USD',flag:'🇿🇼',min:0.5,  sym:'$'},
-  US:{cur:'USD',flag:'🇺🇸',min:0.5,  sym:'$'},
-  GB:{cur:'GBP',flag:'🇬🇧',min:0.40, sym:'£'},
-  EU:{cur:'EUR',flag:'🇪🇺',min:0.46, sym:'€'},
-  IN:{cur:'INR',flag:'🇮🇳',min:41.5, sym:'₹'},
-  OTHER:{cur:'USD',flag:'🌍',min:0.5, sym:'$'},
+  KE:{cur:'KES',flag:'🇰🇪',min:65,   sym:'KES ',dialCode:'+254'},
+  UG:{cur:'UGX',flag:'🇺🇬',min:1850, sym:'UGX ',dialCode:'+256'},
+  TZ:{cur:'TZS',flag:'🇹🇿',min:1350, sym:'TZS ',dialCode:'+255'},
+  RW:{cur:'RWF',flag:'🇷🇼',min:675,  sym:'RWF ',dialCode:'+250'},
+  ET:{cur:'ETB',flag:'🇪🇹',min:29,   sym:'ETB ',dialCode:'+251'},
+  NG:{cur:'NGN',flag:'🇳🇬',min:800,  sym:'₦',  dialCode:'+234'},
+  GH:{cur:'GHS',flag:'🇬🇭',min:7.5,  sym:'GH₵',dialCode:'+233'},
+  SN:{cur:'XOF',flag:'🇸🇳',min:300,  sym:'CFA ',dialCode:'+221'},
+  ZA:{cur:'ZAR',flag:'🇿🇦',min:9.5,  sym:'R',  dialCode:'+27'},
+  ZM:{cur:'ZMW',flag:'🇿🇲',min:13.5, sym:'ZMW ',dialCode:'+260'},
+  ZW:{cur:'USD',flag:'🇿🇼',min:0.5,  sym:'$',  dialCode:'+263'},
+  US:{cur:'USD',flag:'🇺🇸',min:0.5,  sym:'$',  dialCode:'+1'},
+  GB:{cur:'GBP',flag:'🇬🇧',min:0.40, sym:'£',  dialCode:'+44'},
+  EU:{cur:'EUR',flag:'🇪🇺',min:0.46, sym:'€',  dialCode:'+'},
+  IN:{cur:'INR',flag:'🇮🇳',min:41.5, sym:'₹',  dialCode:'+91'},
+  OTHER:{cur:'USD',flag:'🌍',min:0.5, sym:'$',  dialCode:'+'},
 };
 
-// ── Password visibility toggle ───────────────────────────────
-// SVGs: eye-open (visible) and eye-off (hidden)
+// ── SVG icons ────────────────────────────────────────────────
 const EYE_OPEN=`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const EYE_OFF =`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
+// ── Password visibility toggle ───────────────────────────────
 window.togglePwd = (id, btn) => {
   const inp = document.getElementById(id);
   if(!inp) return;
@@ -352,6 +366,33 @@ window.togglePwd = (id, btn) => {
   btn.innerHTML = show ? EYE_OFF : EYE_OPEN;
   btn.style.color = show ? 'var(--gold)' : '';
   btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+};
+
+// ── Detect whether input is phone or email (shared by login + forgot) ──
+window.detectLoginType = (val, hintId='lIdentifierHint') => {
+  const hint = document.getElementById(hintId);
+  if(!hint) return;
+  const v = val.trim();
+  if(!v){ hint.textContent=''; return; }
+  const isEmail = v.includes('@');
+  const isPhone = /^[0-9+\s\-()]{7,}$/.test(v);
+  if(isEmail) hint.textContent = '✉️ Using email';
+  else if(isPhone) hint.textContent = '📱 Using phone number';
+  else hint.textContent = '';
+};
+
+// ── Normalise phone → full E.164 for KE (extend as needed) ──
+function normalisePhone(raw){
+  let n = raw.replace(/\D/g,'');
+  if(n.startsWith('0') && n.length === 10) n = '254' + n.slice(1); // 07xx → 254xx
+  if(!n.startsWith('+')) n = '+' + n;
+  return n; // e.g. +254712345678
+}
+
+// ── Phone formatting hint ────────────────────────────────────
+window.formatPhone = inp => {
+  // strip non-digits except leading +
+  inp.value = inp.value.replace(/[^\d+\s]/g,'');
 };
 
 // ── Tab switching ────────────────────────────────────────────
@@ -369,23 +410,23 @@ window.showForgot = () => {
   ['loginForm','registerForm','newPassForm'].forEach(id=>document.getElementById(id).classList.remove('active'));
   document.getElementById('forgotForm').classList.add('active');
 };
-
 window.showLogin = () => switchTab('login');
 
 // ── Country selector ─────────────────────────────────────────
 window.onCountry = code => {
-  const d=COUNTRIES[code];
-  if(!d){document.getElementById('ccCard').classList.remove('show');return;}
+  const d = COUNTRIES[code];
+  if(!d){ document.getElementById('ccCard').classList.remove('show'); return; }
   document.getElementById('ccFlag').textContent = d.flag;
-  document.getElementById('ccCur').textContent  = `Currency: ${d.cur} — ${d.sym.trim()}`;
+  document.getElementById('ccCur').textContent  = `Currency: ${d.cur}`;
   document.getElementById('ccMin').textContent  = `Minimum deposit: ${d.sym}${d.min} (≈ $0.50 USD)`;
   document.getElementById('ccCard').classList.add('show');
-  localStorage.setItem('df_country',code);
-  localStorage.setItem('df_currency',d.cur);
+  localStorage.setItem('df_country',  code);
+  localStorage.setItem('df_currency', d.cur);
 };
+document.addEventListener('DOMContentLoaded', () => onCountry('KE'));
 
 // ── Password strength ────────────────────────────────────────
-window.pwdStrength = v => {
+window.pwdStrength = (v, barId) => {
   let s=0;
   if(v.length>=8)s++;
   if(/[A-Z]/.test(v))s++;
@@ -393,200 +434,211 @@ window.pwdStrength = v => {
   if(/[^A-Za-z0-9]/.test(v))s++;
   const bars=['25%','50%','75%','100%'];
   const cols=['#ff4455','#ff9f43','#f5c518','#22d97a'];
-  ['pwdBar','pwdBar2'].forEach(id=>{
-    const bar=document.getElementById(id);
-    if(bar){bar.style.width=bars[s-1]||'0%';bar.style.background=cols[s-1]||'transparent';}
-  });
+  const bar = document.getElementById(barId);
+  if(bar){ bar.style.width=bars[s-1]||'0%'; bar.style.background=cols[s-1]||'transparent'; }
 };
 
-// ── Login ────────────────────────────────────────────────────
+// ── LOGIN ────────────────────────────────────────────────────
 window.doLogin = async e => {
   e.preventDefault();
-  const btn=document.getElementById('lBtn');
-  const errEl=document.getElementById('lErr');
-  btn.disabled=true;btn.textContent='Signing in...';
+  const btn    = document.getElementById('lBtn');
+  const errEl  = document.getElementById('lErr');
+  const raw    = document.getElementById('lIdentifier').value.trim();
+  const pass   = document.getElementById('lPass').value;
+
+  btn.disabled=true; btn.textContent='Signing in...';
   errEl.classList.remove('show');
 
-  const {error}=await sb.auth.signInWithPassword({
-    email:document.getElementById('lEmail').value.trim(),
-    password:document.getElementById('lPass').value,
-  });
+  // Decide: phone number or email?
+  const isPhone = /^[0-9+\s\-()]{7,}$/.test(raw) && !raw.includes('@');
+  let loginEmail = raw.toLowerCase();
+
+  if(isPhone){
+    // Reconstruct the same synthetic email used during registration
+    const phone = normalisePhone(raw);
+    loginEmail = phone.replace('+','') + '@dragonflight.internal';
+  }
+
+  const {error} = await sb.auth.signInWithPassword({ email: loginEmail, password: pass });
 
   if(error){
+    errEl.textContent = 'Incorrect email/phone or password.';
     errEl.classList.add('show');
-    showToast('Invalid email or password','fail');
-    btn.disabled=false;btn.textContent='Enter the Realm';
-  }else{
+    showToast('Invalid credentials','fail');
+    btn.disabled=false; btn.textContent='Enter the Realm';
+  } else {
     showToast('Welcome back! Loading... 🐉','ok');
-    setTimeout(()=>location.href='index.html',900);
+    setTimeout(()=>location.href='index.html', 900);
   }
 };
 
-// ── Register ─────────────────────────────────────────────────
+// ── REGISTER ─────────────────────────────────────────────────
 window.doRegister = async e => {
   e.preventDefault();
-  let valid=true;
+  let valid = true;
 
-  // Age check
-  const dob=new Date(document.getElementById('rDob').value);
-  const age=(Date.now()-dob)/(365.25*24*3600*1000);
-  const dobErr=document.getElementById('rDobErr');
-  const dobInp=document.getElementById('rDob');
-  if(age<18){dobErr.classList.add('show');dobInp.classList.add('err');valid=false;}
-  else{dobErr.classList.remove('show');dobInp.classList.remove('err');}
+  // Username
+  const username = document.getElementById('rUser').value.trim();
+  const uErr = document.getElementById('rUserErr');
+  if(username.length < 3 || /\s/.test(username)){
+    uErr.classList.add('show'); document.getElementById('rUser').classList.add('err'); valid=false;
+  } else { uErr.classList.remove('show'); document.getElementById('rUser').classList.remove('err'); }
 
-  // Password match
-  const p1=document.getElementById('rPass').value;
-  const p2=document.getElementById('rPass2').value;
-  const p2Err=document.getElementById('rPass2Err');
-  const p2Inp=document.getElementById('rPass2');
-  if(p1!==p2){p2Err.classList.add('show');p2Inp.classList.add('err');valid=false;}
-  else{p2Err.classList.remove('show');p2Inp.classList.remove('err');}
+  // Phone or Email (single field)
+  const rawId       = document.getElementById('rIdentifier').value.trim();
+  const idErr       = document.getElementById('rIdentifierErr');
+  const idInp       = document.getElementById('rIdentifier');
+  const isRegPhone  = /^[0-9+\s\-()]{7,}$/.test(rawId) && !rawId.includes('@');
+  const isRegEmail  = rawId.includes('@') && rawId.includes('.');
+  let   regEmail    = '';
+  let   regPhone    = '';
+
+  if(isRegPhone){
+    regPhone = normalisePhone(rawId);
+    // We still need an email for Supabase Auth — derive a placeholder
+    // using the normalised number. Users log in by phone, Auth uses email internally.
+    regEmail = regPhone.replace('+','') + '@dragonflight.internal';
+  } else if(isRegEmail){
+    regEmail = rawId.toLowerCase();
+  } else {
+    idErr.classList.add('show'); idInp.classList.add('err'); valid=false;
+  }
+  if(isRegPhone || isRegEmail){ idErr.classList.remove('show'); idInp.classList.remove('err'); }
 
   // Country
-  const country=document.getElementById('rCountry').value;
-  if(!country){showToast('Please select your country','fail');valid=false;}
+  const country = document.getElementById('rCountry').value;
+  if(!country){ showToast('Please select your country','fail'); valid=false; }
 
-  if(!valid)return;
+  // Passwords
+  const p1    = document.getElementById('rPass').value;
+  const p2    = document.getElementById('rPass2').value;
+  const p2Err = document.getElementById('rPass2Err');
+  if(p1 !== p2){
+    p2Err.classList.add('show'); document.getElementById('rPass2').classList.add('err'); valid=false;
+  } else { p2Err.classList.remove('show'); document.getElementById('rPass2').classList.remove('err'); }
 
-  const btn=document.getElementById('rBtn');
-  btn.disabled=true;btn.textContent='Creating account...';
+  if(!valid) return;
 
-  const username=document.getElementById('rUser').value.trim();
-  const email=document.getElementById('rEmail').value.trim();
-  const currency=COUNTRIES[country]?.cur||'USD';
+  const btn      = document.getElementById('rBtn');
+  btn.disabled=true; btn.textContent='Creating account...';
 
-  // Create Supabase Auth user
-  const {data,error}=await sb.auth.signUp({
-    email, password:p1,
-    options:{data:{username, country, currency, dob:document.getElementById('rDob').value}},
+  const currency = COUNTRIES[country]?.cur || 'USD';
+
+  // ── Step 1: Create Supabase Auth user ──────────────────────
+  const {data, error} = await sb.auth.signUp({
+    email: regEmail,
+    password: p1,
+    options: { data: { username } },
   });
 
   if(error){
-    showToast(error.message,'fail');
-    btn.disabled=false;btn.textContent='Create My Account';
+    showToast(error.message, 'fail');
+    btn.disabled=false; btn.textContent='Create My Account 🐉';
     return;
   }
 
-  // Insert into public.users
-  // NOTE: referral_code is auto-generated by the DB DEFAULT expression.
-  // Do NOT pass it from the client to avoid conflicts.
-  const {error:uErr}=await sb.from('users').upsert({
-    id:data.user.id,
+  // ── Step 2: Upsert into public.users ───────────────────────
+  // referral_code is auto-generated by DB DEFAULT — do NOT send from client.
+  const {error: uErr2} = await sb.from('users').upsert({
+    id:           data.user.id,
     username,
-    email,
+    email:        regEmail,
+    phone_number: regPhone || null,
     currency,
     country,
-    balance_real:0,
-    balance_demo:10000,
-    vip_tier:'bronze',
-  },{onConflict:'id'});
+    balance_real: 0,
+    balance_demo: 10000,
+    vip_tier:     'bronze',
+  }, { onConflict: 'id' });
 
-  if(uErr){
-    // Profile insert failed but auth user was created — log and proceed.
-    // The trigger or claim_signup_bonus RPC can fill in defaults later.
-    console.warn('Profile upsert warning:', uErr.message);
+  if(uErr2){
+    // Profile row failed but auth user exists — log and continue.
+    // DB trigger or RPC can backfill later.
+    console.warn('Profile upsert warning:', uErr2.message);
   }
 
-  showToast('Account created! Welcome 🐉','ok');
-  setTimeout(()=>location.href='index.html',1200);
+  showToast('Account created! Welcome 🐉', 'ok');
+  setTimeout(()=>location.href='index.html', 1200);
 };
 
-// ── Forgot password ──────────────────────────────────────────
+// ── FORGOT PASSWORD ──────────────────────────────────────────
 window.doForgot = async e => {
   e.preventDefault();
-  const btn=document.getElementById('fBtn');
-  const errEl=document.getElementById('fErr');
-  const emailEl=document.getElementById('fEmail');
-  const email=emailEl.value.trim().toLowerCase();
+  const btn     = document.getElementById('fBtn');
+  const errEl   = document.getElementById('fErr');
+  const inpEl   = document.getElementById('fIdentifier');
+  const raw     = inpEl.value.trim();
 
-  errEl.classList.remove('show');
-  emailEl.classList.remove('err');
-  btn.disabled=true;btn.textContent='Checking...';
+  errEl.classList.remove('show'); inpEl.classList.remove('err');
+  btn.disabled=true; btn.textContent='Checking...';
 
-  // Optional RPC to verify email exists before sending
-  const {data:exists,error:rpcErr}=await sb.rpc('check_email_exists',{p_email:email});
+  const isPhone = /^[0-9+\s\-()]{7,}$/.test(raw) && !raw.includes('@');
+  let email = raw.toLowerCase();
 
-  if(!rpcErr&&!exists){
-    emailEl.classList.add('err');
-    errEl.textContent='No account found with this email.';
-    errEl.classList.add('show');
-    showToast('Email not registered','fail');
-    btn.disabled=false;btn.textContent='Send Reset Link 🔑';
-    return;
+  if(isPhone){
+    const phone = normalisePhone(raw);
+    email = phone.replace('+','') + '@dragonflight.internal';
   }
-  // If RPC not found (rpcErr), fall through and send anyway.
+
 
   btn.textContent='Sending...';
-  const {error:resetErr}=await sb.auth.resetPasswordForEmail(email,{
-    redirectTo:window.location.origin+'/auth.html',
+  const {error} = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/auth.html',
   });
 
-  if(resetErr){
+  if(error){
     showToast('Could not send reset email. Try again.','fail');
-    btn.disabled=false;btn.textContent='Send Reset Link 🔑';
+    btn.disabled=false; btn.textContent='Send Reset Link 🔑';
     return;
   }
 
   showToast('Reset link sent! Check your email 📧','ok');
   btn.textContent='Email Sent ✓';
-  setTimeout(()=>{btn.disabled=false;btn.textContent='Send Reset Link 🔑';showLogin();},3500);
+  setTimeout(()=>{ btn.disabled=false; btn.textContent='Send Reset Link 🔑'; showLogin(); }, 3500);
 };
 
-// ── Set new password (after clicking email link) ─────────────
+// ── SET NEW PASSWORD ─────────────────────────────────────────
 window.doNewPassword = async e => {
   e.preventDefault();
-  const p1=document.getElementById('npPass').value;
-  const p2=document.getElementById('npPass2').value;
-  const errEl=document.getElementById('npErr2');
+  const p1   = document.getElementById('npPass').value;
+  const p2   = document.getElementById('npPass2').value;
+  const errEl= document.getElementById('npErr2');
 
-  if(p1!==p2){
-    errEl.classList.add('show');
-    document.getElementById('npPass2').classList.add('err');
-    return;
-  }
-  errEl.classList.remove('show');
-  document.getElementById('npPass2').classList.remove('err');
+  if(p1 !== p2){ errEl.classList.add('show'); document.getElementById('npPass2').classList.add('err'); return; }
+  errEl.classList.remove('show'); document.getElementById('npPass2').classList.remove('err');
 
-  const btn=document.getElementById('npBtn');
-  btn.disabled=true;btn.textContent='Updating...';
+  const btn = document.getElementById('npBtn');
+  btn.disabled=true; btn.textContent='Updating...';
 
-  const {error}=await sb.auth.updateUser({password:p1});
+  const {error} = await sb.auth.updateUser({ password: p1 });
   if(error){
-    showToast(error.message||'Could not update password','fail');
-    btn.disabled=false;btn.textContent='Update Password 🛡️';
+    showToast(error.message || 'Could not update password','fail');
+    btn.disabled=false; btn.textContent='Update Password 🛡️';
     return;
   }
 
   showToast('Password updated! Signing you in...','ok');
   btn.textContent='Done ✓';
-  setTimeout(async()=>{
-    await sb.auth.signOut();
-    location.href='index.html';
-  },1800);
+  setTimeout(async()=>{ await sb.auth.signOut(); location.href='index.html'; }, 1800);
 };
 
 // ── Toast ────────────────────────────────────────────────────
-function showToast(msg,type){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.className=`toast show ${type}`;
-  clearTimeout(t._t);t._t=setTimeout(()=>t.className='toast',3500);
+function showToast(msg, type){
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.className=`toast show ${type}`;
+  clearTimeout(t._t); t._t=setTimeout(()=>t.className='toast', 3500);
 }
 
-// ── Boot: detect recovery token or redirect if already logged in ──
+// ── Boot ─────────────────────────────────────────────────────
 (async()=>{
-  // Supabase puts #access_token=...&type=recovery in the URL hash
-  const hash=window.location.hash;
-  const params=new URLSearchParams(hash.replace('#',''));
-  const type=params.get('type');
-  const accessToken=params.get('access_token');
-  const refreshToken=params.get('refresh_token');
+  const hash   = window.location.hash;
+  const params = new URLSearchParams(hash.replace('#',''));
+  const type   = params.get('type');
+  const access = params.get('access_token');
+  const refresh= params.get('refresh_token');
 
-  if(type==='recovery'&&accessToken){
-    const {error}=await sb.auth.setSession({
-      access_token:accessToken,
-      refresh_token:refreshToken||'',
-    });
+  if(type==='recovery' && access){
+    const {error} = await sb.auth.setSession({ access_token:access, refresh_token:refresh||'' });
     if(!error){
       document.querySelector('.tabs').style.display='none';
       document.querySelectorAll('.form').forEach(f=>f.classList.remove('active'));
@@ -596,9 +648,8 @@ function showToast(msg,type){
     }
   }
 
-  // Normal load — redirect if already logged in
-  const {data:{session}}=await sb.auth.getSession();
-  if(session)location.href='index.html';
+  const {data:{session}} = await sb.auth.getSession();
+  if(session) location.href='index.html';
 })();
 </script>
 </body>

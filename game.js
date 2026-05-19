@@ -332,7 +332,55 @@ async function loadUser(){
       _fn('bonusPop',e=>e.classList.add('show'));
     }
   },2500);
+  // Show ghost odds banner on login
+  showGhostOddsBanner();
 }
+
+// ─────────────────────────────────────────────────────────────
+//  GHOST ODDS BANNER — 20 multiplier pills shown on login
+// ─────────────────────────────────────────────────────────────
+function showGhostOddsBanner(){
+  const banner=document.getElementById('ghostOddsBanner');
+  const track=document.getElementById('gobTrack');
+  if(!banner||!track)return;
+
+  // 20 ghost multipliers — same style as crash history row
+  const GHOST_MULTS=[
+    1.30, 2.43, 2.18, 3.50, 6.42, 3.12, 228.44,
+    1.46, 1.71, 2.15, 1.52, 16.01, 2.17, 2.71,
+    4.88, 8.33, 1.22, 45.60, 3.77, 12.50
+  ];
+
+  // Color class by size — matches screenshot blue → purple → gold → fire palette
+  function pillClass(m){
+    if(m>=30)  return 'gob-c5'; // fire/orange — extreme
+    if(m>=10)  return 'gob-c4'; // gold
+    if(m>=5)   return 'gob-c3'; // violet
+    if(m>=2)   return 'gob-c2'; // purple
+    return 'gob-c1';            // blue
+  }
+
+  // Double the list so the marquee loops seamlessly
+  const all=[...GHOST_MULTS,...GHOST_MULTS];
+  track.innerHTML=all.map(m=>{
+    const label=m.toFixed(2)+'x';
+    return `<span class="gob-pill ${pillClass(m)}">${label}</span>`;
+  }).join('');
+
+  banner.style.display='flex';
+  setTimeout(()=>closeGhostOddsBanner(),45000);
+}
+
+window.closeGhostOddsBanner=function(){
+  const banner=document.getElementById('ghostOddsBanner');
+  if(banner){
+    banner.style.transition='max-height .35s ease,opacity .3s ease,padding .35s ease';
+    banner.style.opacity='0';
+    banner.style.maxHeight='0';
+    banner.style.padding='0';
+    setTimeout(()=>{banner.style.display='none';},350);
+  }
+};
 
 async function refreshUserBalance(){
   if(!G.userId)return;

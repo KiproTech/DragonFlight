@@ -582,6 +582,77 @@ body {
 .toast.tg { border-color: rgba(245,197,24,.38); color: var(--gold); }
 
 @media(min-width:520px) { .content{padding:1.5rem 1.5rem 3.5rem} }
+
+/* ── Mobile responsive patch ── */
+@media (max-width: 480px) {
+  /* Prevent iOS auto-zoom on input focus */
+  input[type="text"],
+  input[type="tel"],
+  input[type="email"],
+  input[type="number"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Tighter topbar */
+  .topbar { padding: .7rem .85rem; }
+  .topbar-logo { font-size: .78rem; }
+  .topbar-back { font-size: .72rem; padding: .3rem .6rem; }
+
+  /* Content padding */
+  .content { padding: 1rem .85rem 2.5rem; gap: .82rem; }
+
+  /* Amount display */
+  .amt-display { padding: .85rem .95rem; flex-wrap: wrap; gap: .5rem; }
+  .amt-value   { font-size: 1.55rem; }
+
+  /* Pay rows */
+  .pay-row { padding: .45rem .65rem; flex-wrap: wrap; gap: .3rem; }
+  .pay-row-label { font-size: .68rem; }
+  .pay-row-val   { font-size: .82rem; }
+  .copy-btn      { padding: .22rem .55rem; font-size: .64rem; min-height: 30px; }
+
+  /* Cards */
+  .card-hdr  { padding: .75rem 1rem; }
+  .card-body { padding: .85rem 1rem; gap: .7rem; }
+
+  /* Steps bar labels */
+  .step-lbl { font-size: .5rem; }
+  .step-dot { width: 28px; height: 28px; font-size: .68rem; }
+
+  /* Form fields */
+  .field input { padding: .62rem .75rem; }
+  .field label { font-size: .6rem; }
+  .field-hint  { font-size: .63rem; }
+
+  /* Submit button */
+  .btn-submit { padding: .82rem; font-size: .82rem; min-height: 48px; }
+
+  /* Home button */
+  .btn-home { padding: .65rem; font-size: .74rem; }
+
+  /* Success / waiting cards */
+  .success-card  { padding: 1.5rem 1rem; }
+  .success-title { font-size: 1rem; }
+  .success-body  { font-size: .78rem; }
+  .waiting-card  { padding: 1.25rem 1rem; }
+  .waiting-title { font-size: .92rem; }
+  .waiting-body  { font-size: .76rem; }
+
+  /* Banners */
+  .banner { font-size: .76rem; padding: .7rem .9rem; }
+
+  /* Toast: wider on mobile */
+  .toast { max-width: calc(100vw - 2rem); font-size: .76rem; bottom: 1rem; }
+}
+
+/* ── Safe-area insets (notch / Dynamic Island) ── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .page-wrap { padding-bottom: env(safe-area-inset-bottom); }
+  .toast     { bottom: calc(1rem + env(safe-area-inset-bottom)); }
+  .topbar    { padding-top: max(.7rem, env(safe-area-inset-top)); }
+}
 </style>
 </head>
 <body>

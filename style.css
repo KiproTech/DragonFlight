@@ -51,13 +51,9 @@ body::before{
   flex-shrink:0;gap:8px;z-index:50;min-height:54px;
   box-shadow:0 1px 0 rgba(255,255,255,.04),0 4px 24px rgba(0,0,0,.4);
 }
+/* Header mobile: handled by comprehensive block below */
 @media(max-width:660px){
-  #hdr{flex-wrap:wrap;padding:.45rem .75rem;gap:5px}
-  .logo{font-size:.85rem}
-  .hm{order:3;width:100%;justify-content:flex-start;gap:6px;padding-top:2px}
-  .hr{order:2;gap:5px;margin-left:auto}
   .csel{font-size:.65rem;padding:.18rem .3rem}
-  .balpill{padding:.22rem .65rem;font-size:.78rem}
 }
 .logo{
   font-family:'Cinzel Decorative',serif;font-size:1.05rem;font-weight:900;
@@ -837,7 +833,6 @@ input:checked+.tgl-sl::before{transform:translateX(13px);background:var(--green)
   .bpanels{grid-template-columns:1fr 1fr}
 }
 @media(max-width:460px){
-  .bpanels{grid-template-columns:1fr}
   .hm .vip-badge{display:none}
 }
 
@@ -948,8 +943,6 @@ input:checked+.tgl-sl::before{transform:translateX(13px);background:var(--green)
   .dep-method{padding:.52rem .3rem;font-size:.7rem}
   .dep-method .dm-icon{font-size:1.1rem}
   .dep-big-inp{font-size:1.1rem}
-  .modal{border-radius:18px 18px 0 0;position:fixed;bottom:0;max-height:96vh;animation:modalSlideUp .32s ease}
-  .overlay{align-items:flex-end;padding:0}
 }
 @keyframes modalSlideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
 
@@ -1092,3 +1085,538 @@ input:checked+.tgl-sl::before{transform:translateX(13px);background:var(--green)
   #witVerifModal > div{border-radius:16px;max-height:96vh}
   #witVerifModal > div > div:first-child{border-radius:16px 16px 0 0}
 }
+
+/* ══════════════════════════════════════════════════════════════
+   COMPREHENSIVE MOBILE RESPONSIVE OVERHAUL
+   Fixes: header overflow, bet panels, sidebar, canvas, modals
+══════════════════════════════════════════════════════════════ */
+
+/* ── Base mobile layout ──────────────────────────────── */
+@media(max-width:660px){
+
+  /* App scrolls freely on mobile */
+  html, body { height: auto; overflow-x: hidden; }
+  #app { height: auto; min-height: 100dvh; overflow-y: auto; overflow-x: hidden; }
+  #main { flex-direction: column; overflow: visible; flex: none; }
+  #gc { overflow: visible; padding: .5rem; gap: .45rem; }
+
+  /* ── HEADER: two-row layout ── */
+  #hdr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "logo  right"
+      "mid   mid";
+    padding: .45rem .65rem;
+    gap: 4px 6px;
+    min-height: unset;
+  }
+  .logo  { grid-area: logo;  font-size: .82rem; align-self: center; }
+  .hm    { grid-area: mid;   justify-content: flex-start; gap: 6px; padding-top: 2px; flex-wrap: wrap; }
+  .hr    { grid-area: right; gap: 5px; flex-wrap: nowrap; }
+
+  /* Shrink header icon buttons on mobile */
+  .ibtn { font-size: .78rem; padding: .22rem .44rem; }
+
+  /* Balance pill: tighter */
+  .balpill { padding: .22rem .6rem; font-size: .75rem; gap: 4px; }
+  .biv  { font-size: .72rem; }
+  .bal-dep-wrap .balpill { padding: .22rem .55rem .22rem .8rem; }
+
+  /* Mode toggle smaller */
+  .mdb { padding: .18rem .65rem; font-size: .6rem; }
+
+  /* VIP badge: hide on very small screens (shown via .hm already) */
+  .vip-badge { font-size: .56rem; padding: .16rem .55rem; }
+
+  /* Mode indicator bar: smaller text */
+  .mode-indicator-bar { font-size: .52rem; padding: .18rem .75rem; letter-spacing: 1px; }
+
+  /* ── Canvas: taller on phones ── */
+  #cw { min-height: 200px; height: 200px; flex: none; }
+
+  /* Multiplier text: smaller so it fits */
+  .mv { font-size: 2.6rem; }
+  .ml { font-size: .55rem; letter-spacing: 2px; }
+
+  /* Countdown SVG */
+  .cd-svg { width: 88px; height: 88px; }
+  .cd-num { font-size: 1.6rem; }
+
+  /* Ghost bar text */
+  .gi { font-size: .62rem; padding: 0 .7rem; }
+  .ghost-count { font-size: .54rem; }
+
+  /* ── Provably fair bar: wrap ── */
+  .pfbar { flex-wrap: wrap; gap: 5px; padding: .3rem .6rem; }
+  .pfh   { min-width: 0; width: 100%; order: 3; }
+  .pfl   { font-size: .6rem; }
+  .pfr   { font-size: .58rem; }
+
+  /* ── History pills: scrollable row ── */
+  .hrow { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+          scrollbar-width: none; padding-bottom: 2px; }
+  .hrow::-webkit-scrollbar { display: none; }
+
+  /* ── Bet panels: stacked single column ── */
+  .bpanels { grid-template-columns: 1fr; gap: .5rem; }
+  .bpanel  { padding: .7rem; gap: .38rem; }
+
+  /* Panel header */
+  .phdr { gap: 6px; }
+  .plbl { font-size: .72rem; }
+  .ptb  { font-size: .58rem; padding: .15rem .6rem; }
+
+  /* Bet input row */
+  .birow { gap: .4rem; }
+  .binp  { font-size: .88rem; padding: .4rem .6rem; }
+
+  /* Quick-bet chips */
+  .qbs { gap: .3rem; }
+  .qb  { font-size: .68rem; padding: .22rem .6rem; min-width: 38px; }
+
+  /* Auto cash-out row */
+  .arow { flex-wrap: wrap; gap: 5px; }
+  .albl { font-size: .67rem; }
+
+  /* Action buttons: bigger tap targets */
+  .abtn { padding: .75rem; font-size: .72rem; border-radius: 10px; }
+
+  /* ── Sidebar: horizontal tabs, compact ── */
+  #sb { width: 100%; border-left: none; border-top: 1px solid var(--border);
+        flex-shrink: 0; max-height: 320px; }
+  .sbtabs { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .sbtabs::-webkit-scrollbar { display: none; }
+  .sbt { min-width: 56px; font-size: .54rem; padding: .45rem .25rem; white-space: nowrap; }
+  .sbp { padding: .5rem; }
+  .lrow { font-size: .68rem; padding: .3rem .35rem; }
+
+  /* ── Modals: full bottom-sheet on phones ── */
+  .overlay { align-items: flex-end; padding: 0; }
+  .modal {
+    border-radius: 20px 20px 0 0;
+    max-width: 100%;
+    width: 100%;
+    max-height: 93dvh;
+    animation: modalSlideUp .32s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes modalSlideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .mbody { padding: .9rem 1rem; gap: .75rem; }
+  .mhd   { padding: .9rem 1rem; }
+
+  /* Wallet tabs: scrollable */
+  .wtabs { overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
+  .wtabs::-webkit-scrollbar { display: none; }
+  .wtb { min-width: 72px; font-size: .58rem; }
+
+  /* Demo timer bar: tighter */
+  .demo-timer-bar { padding: .42rem .75rem; gap: .55rem; font-size: .72rem; }
+  .dtb-dep { font-size: .58rem; padding: .28rem .65rem; }
+
+  /* Toast: full width on mobile */
+  .toast { right: .6rem; left: .6rem; max-width: unset; font-size: .78rem; }
+
+  /* Bonus popup: full width */
+  .bpop { min-width: unset; width: calc(100vw - 2rem); left: 1rem;
+          transform: translateY(150px); }
+  .bpop.show { transform: translateY(0); }
+}
+
+/* ── Extra-small phones (≤380px) ─────────────────────── */
+@media(max-width:380px){
+  .logo { font-size: .72rem; }
+  #hdr  { padding: .4rem .5rem; }
+
+  /* Hide deposit button text, show icon only */
+  .dep-quick-btn { font-size: 0; padding: .26rem .55rem; letter-spacing: 0; }
+  .dep-quick-btn::before { font-size: .8rem; }
+
+  /* Balance: minimal */
+  .balpill { padding: .2rem .45rem; }
+  .biv     { font-size: .65rem; }
+
+  /* Canvas: slightly shorter to leave room for bet panels */
+  #cw { height: 175px; min-height: 175px; }
+  .mv { font-size: 2.1rem; }
+
+  /* Bet panels: ultra-compact */
+  .bpanel { padding: .55rem; }
+  .abtn   { padding: .65rem; font-size: .68rem; }
+  .qb     { font-size: .62rem; padding: .2rem .45rem; min-width: 34px; }
+
+  /* Sidebar: shorter */
+  #sb { max-height: 270px; }
+
+  /* Profile stats grid: 2 col instead of 3 */
+  .profile-stats { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Landscape phones ────────────────────────────────── */
+@media(max-width:812px) and (orientation:landscape) and (max-height:500px){
+  #app  { height: auto; }
+  #main { flex-direction: row; overflow: visible; }
+  #gc   { overflow: visible; }
+  #cw   { height: 160px; min-height: 160px; }
+  #sb   { width: 240px; max-height: unset; border-left: 1px solid var(--border); border-top: none; }
+  .bpanels { grid-template-columns: 1fr 1fr; }
+  .mv { font-size: 2rem; }
+}
+
+/* ── Touch: larger tap targets for all interactive elements ── */
+@media(hover:none) and (pointer:coarse){
+  .qb, .ptb, .mdb, .wtb, .sbt { min-height: 36px; }
+  .ibtn { min-height: 34px; min-width: 34px; justify-content: center; }
+  .abtn { min-height: 44px; }
+  .mbtn { min-height: 44px; }
+  .dep-quick-btn { min-height: 34px; }
+
+  /* Remove hover effects that don't work on touch */
+  .hp:hover { transform: none; box-shadow: none; }
+  .bpanel:hover { border-color: var(--border); }
+}
+/* ══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVENESS — FINAL PATCH
+   Fills gaps left by existing media queries:
+   - Header overflow on small phones
+   - Bet panels stacked properly
+   - Wallet/modal form inputs sized for touch
+   - Verification page (shared tokens already imported)
+   - Safe-area insets for notched phones
+   - Input zoom prevention (font-size ≥ 16px on focus)
+══════════════════════════════════════════════════════════════ */
+
+/* ── Prevent iOS input auto-zoom (requires font-size ≥ 16px) ── */
+@media (max-width: 660px) {
+  input[type="number"],
+  input[type="text"],
+  input[type="tel"],
+  input[type="email"],
+  input[type="password"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* ── HEADER: compact two-row grid ── */
+  #hdr {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "logo logo right"
+      "mid  mid  mid";
+    padding: .42rem .6rem;
+    gap: 3px 6px;
+    min-height: unset;
+  }
+  .logo  { grid-area: logo; font-size: .78rem; align-self: center; white-space: nowrap; }
+  .hm    { grid-area: mid;  justify-content: flex-start; gap: 5px; padding-top: 3px; flex-wrap: wrap; width: 100%; }
+  .hr    { grid-area: right; gap: 4px; flex-wrap: nowrap; align-items: center; }
+
+  /* Shrink right-side icon buttons */
+  .ibtn { font-size: .75rem; padding: .2rem .4rem; min-height: 32px; min-width: 32px; justify-content: center; }
+
+  /* Balance pill */
+  .balpill { padding: .2rem .55rem; font-size: .72rem; gap: 3px; }
+  .biv     { font-size: .7rem; letter-spacing: 0; }
+  .bal-dep-wrap .balpill { padding: .2rem .5rem .2rem .72rem; }
+
+  /* Bonus pill: hide label, show icon only */
+  .bonus-pill .biv { display: none; }
+
+  /* Deposit button: icon-only on small screens */
+  .dep-quick-btn { font-size: .56rem; padding: .22rem .52rem; }
+
+  /* Mode toggle */
+  .mdb { padding: .16rem .6rem; font-size: .58rem; }
+
+  /* VIP badge */
+  .vip-badge { font-size: .54rem; padding: .14rem .5rem; }
+
+  /* Mode indicator bar */
+  .mode-indicator-bar { font-size: .5rem; padding: .16rem .6rem; letter-spacing: .8px; }
+
+  /* ── CANVAS ── */
+  #cw { min-height: 195px; height: 195px; flex: none; }
+  .mv { font-size: 2.5rem; }
+  .ml { font-size: .52rem; letter-spacing: 1.5px; }
+  .cd-svg { width: 84px; height: 84px; }
+  .cd-num { font-size: 1.55rem; }
+
+  /* Status badge */
+  .sbadge { font-size: .56rem; padding: .18rem .75rem; letter-spacing: 1.5px; }
+
+  /* ── Provably fair bar ── */
+  .pfbar { flex-wrap: wrap; gap: 4px; padding: .28rem .55rem; font-size: .6rem; }
+  .pfh   { width: 100%; order: 3; font-size: .56rem; }
+  .pfl   { font-size: .58rem; }
+  .pfr   { font-size: .56rem; margin-left: auto; }
+
+  /* ── Crash history: horizontal scroll ── */
+  .hrow { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
+  .hrow::-webkit-scrollbar { display: none; }
+  .hp   { flex-shrink: 0; }
+
+  /* ── BET PANELS: single column stack ── */
+  .bpanels { grid-template-columns: 1fr !important; gap: .45rem; }
+  .bpanel  { padding: .65rem; gap: .35rem; }
+
+  /* Panel header */
+  .phdr { gap: 5px; }
+  .plbl { font-size: .68rem; }
+  .ptb  { font-size: .56rem; padding: .13rem .55rem; min-height: 32px; }
+
+  /* Bet input */
+  .birow { gap: .35rem; }
+  .binp  { font-size: .9rem; padding: .42rem .6rem; }
+
+  /* Quick bet chips */
+  .qbs { gap: .28rem; flex-wrap: wrap; }
+  .qb  { font-size: .66rem; padding: .2rem .55rem; min-width: 36px; min-height: 32px; }
+
+  /* Auto cash-out row */
+  .arow { flex-wrap: wrap; gap: 5px; }
+  .albl { font-size: .65rem; }
+  .ainp { font-size: .82rem !important; width: 70px; }
+
+  /* Stop-loss / auto fields */
+  .stoprow { font-size: .72rem; }
+  .sinp, .rinp { font-size: .82rem !important; }
+
+  /* Action bet button */
+  .abtn { padding: .72rem; font-size: .7rem; border-radius: 10px; min-height: 42px; }
+
+  /* ── SIDEBAR: horizontal tabs at bottom ── */
+  #sb { width: 100%; border-left: none; border-top: 1px solid var(--border); flex-shrink: 0; max-height: 300px; }
+  .sbtabs { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+  .sbtabs::-webkit-scrollbar { display: none; }
+  .sbt { min-width: 54px; font-size: .52rem; padding: .42rem .22rem; min-height: 36px; white-space: nowrap; flex-shrink: 0; }
+  .sbp { padding: .45rem; }
+  .lrow { font-size: .66rem; padding: .28rem .32rem; }
+  .lnm  { max-width: 80px; }
+
+  /* Chat input sizing */
+  .cinp { font-size: 16px !important; padding: .38rem .55rem; }
+  .csnd { font-size: .78rem; padding: .38rem .65rem; min-height: 38px; }
+
+  /* ── MODALS: bottom sheet ── */
+  .overlay { align-items: flex-end; padding: 0; }
+  .modal {
+    border-radius: 20px 20px 0 0;
+    max-width: 100%;
+    width: 100%;
+    max-height: 92dvh;
+    animation: modalSlideUp .3s cubic-bezier(.34,1.56,.64,1);
+  }
+  .mbody { padding: .85rem .95rem; gap: .7rem; }
+  .mhd   { padding: .85rem .95rem; }
+  .mtitle { font-size: .86rem; }
+
+  /* Wallet tabs: scrollable row */
+  .wtabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .wtabs::-webkit-scrollbar { display: none; }
+  .wtb { min-width: 68px; font-size: .56rem; flex-shrink: 0; padding: .28rem .35rem; min-height: 34px; }
+
+  /* Wallet balance summary grid: maintain 3-col but smaller */
+  .mbody > div[style*="grid-template-columns:1fr 1fr 1fr"] { gap: .3rem !important; }
+
+  /* Form fields in modals */
+  .mf input, .mf select, .mf textarea { padding: .5rem .7rem; }
+  .mf label { font-size: .58rem; }
+
+  /* Modal buttons */
+  .mbtn { padding: .65rem; font-size: .74rem; min-height: 42px; }
+
+  /* Deposit amount input */
+  .dep-big-inp { font-size: 1.1rem; }
+  .dep-quick-amts { gap: .3rem; }
+  .dep-qa { font-size: .68rem; padding: .2rem .6rem; }
+  .dep-method-grid { gap: .4rem; }
+  .dep-method { padding: .55rem .3rem; font-size: .7rem; }
+  .dep-method .dm-icon { font-size: 1.1rem; }
+
+  /* Deposit paybill card */
+  .paybill-card { padding: .75rem; }
+  .pb-row { font-size: .75rem; }
+
+  /* Responsible gambling inputs */
+  .rgitem { gap: .5rem; }
+  .rginp { width: 78px; font-size: .8rem !important; }
+
+  /* Profile stats: 2-col on mobile */
+  .profile-stats { grid-template-columns: 1fr 1fr; gap: .4rem; }
+  .profile-wallets { grid-template-columns: 1fr 1fr 1fr; gap: .35rem; }
+  .pw-item { padding: .6rem .4rem; }
+  .pw-label { font-size: .55rem; }
+  .pw-value { font-size: .8rem; }
+  .profile-card { padding: .9rem; }
+
+  /* Achievement grid */
+  .agrid { grid-template-columns: 1fr 1fr; gap: .4rem; }
+
+  /* Toast */
+  .toast { right: .55rem; left: .55rem; max-width: unset; font-size: .75rem; bottom: .75rem; }
+
+  /* Demo timer bar */
+  .demo-timer-bar { padding: .42rem .7rem; gap: .5rem; font-size: .7rem; }
+  .dtb-dep { font-size: .56rem; padding: .26rem .6rem; }
+
+  /* Notification panel: full width on mobile */
+  .notif-panel { width: calc(100vw - 1rem); right: .5rem; left: .5rem; top: auto; bottom: 4.5rem; border-radius: 14px; }
+  .notif-list  { max-height: 55dvh; }
+  .notif-title { font-size: .76rem; }
+  .notif-msg   { font-size: .7rem; }
+
+  /* Bonus popup */
+  .bpop { min-width: unset; width: calc(100vw - 1.5rem); left: .75rem; transform: translateY(150px); right: .75rem; }
+  .bpop.show { transform: translateY(0); }
+
+  /* Mode indicator bar safe area */
+  .mode-indicator-bar { padding-left: env(safe-area-inset-left, .6rem); padding-right: env(safe-area-inset-right, .6rem); }
+}
+
+/* ── Extra-small phones ≤ 380px ── */
+@media (max-width: 380px) {
+  .logo { font-size: .7rem; }
+  #hdr  { padding: .38rem .48rem; }
+
+  /* Deposit button: icon only */
+  .dep-quick-btn { font-size: 0 !important; padding: .22rem .48rem !important; letter-spacing: 0; }
+  .dep-quick-btn::before { font-size: .82rem; }
+
+  /* Balance */
+  .balpill { padding: .18rem .42rem; }
+  .biv     { font-size: .64rem; }
+
+  /* Canvas */
+  #cw { height: 170px; min-height: 170px; }
+  .mv { font-size: 2rem; }
+
+  /* Bet panels */
+  .bpanel { padding: .5rem; }
+  .abtn   { padding: .62rem; font-size: .66rem; }
+  .qb     { font-size: .6rem; padding: .18rem .42rem; min-width: 32px; }
+
+  /* Sidebar shorter */
+  #sb { max-height: 260px; }
+
+  /* Profile stats: 2-col */
+  .profile-stats { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Landscape phones ── */
+@media (max-width: 812px) and (orientation: landscape) and (max-height: 500px) {
+  #app  { height: auto; }
+  #main { flex-direction: row; overflow: visible; }
+  #gc   { overflow: visible; }
+  #cw   { height: 155px; min-height: 155px; }
+  #sb   { width: 235px; max-height: unset; border-left: 1px solid var(--border); border-top: none; }
+  .bpanels { grid-template-columns: 1fr 1fr !important; }
+  .mv { font-size: 1.9rem; }
+}
+
+/* ── Touch devices: larger tap targets ── */
+@media (hover: none) and (pointer: coarse) {
+  .qb, .ptb, .mdb, .wtb, .sbt { min-height: 36px; }
+  .ibtn  { min-height: 34px; min-width: 34px; justify-content: center; }
+  .abtn  { min-height: 44px; }
+  .mbtn  { min-height: 44px; }
+  .dep-quick-btn { min-height: 34px; }
+  .mclose { min-height: 36px; min-width: 36px; justify-content: center; display: inline-flex; align-items: center; }
+
+  /* Suppress hover transforms on touch */
+  .hp:hover { transform: none; box-shadow: none; }
+  .bpanel:hover { border-color: var(--border); }
+  .vip-badge:hover { transform: none; filter: none; }
+}
+
+/* ── Safe-area insets for notched / dynamic-island iPhones ── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  #app { padding-bottom: env(safe-area-inset-bottom); }
+  .demo-timer-bar { padding-bottom: calc(.42rem + env(safe-area-inset-bottom)); }
+  .overlay .modal { padding-bottom: env(safe-area-inset-bottom); }
+  .toast { bottom: calc(.75rem + env(safe-area-inset-bottom)); }
+}
+/* ══════════════ GHOST ODDS BANNER ══════════════ */
+#ghostOddsBanner{
+  position:relative;
+  display:flex;
+  align-items:center;
+  background:#0d0a1a;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  padding:.35rem .5rem .35rem .6rem;
+  overflow:hidden;
+  height:2.1rem;
+  z-index:90;
+}
+.gob-track-wrap{
+  flex:1;
+  overflow:hidden;
+  mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 97%,transparent 100%);
+  -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 97%,transparent 100%);
+}
+.gob-track{
+  display:flex;
+  align-items:center;
+  gap:0;
+  animation:gobScroll 50s linear infinite;
+  width:max-content;
+}
+.gob-track:hover{animation-play-state:paused}
+@keyframes gobScroll{
+  0%{transform:translateX(0)}
+  100%{transform:translateX(-50%)}
+}
+/* Each multiplier pill — exactly like the crash history style in the screenshot */
+.gob-pill{
+  display:inline-block;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.82rem;
+  font-weight:700;
+  letter-spacing:.3px;
+  padding:.12rem .55rem;
+  border-radius:20px;
+  margin:0 .2rem;
+  white-space:nowrap;
+  cursor:default;
+  transition:filter .15s,transform .15s;
+}
+.gob-pill:hover{filter:brightness(1.25);transform:scale(1.08)}
+
+/* Color tiers — matching screenshot's blue → purple → gold palette */
+.gob-c1{color:#4da6ff}                          /* 1x–2x   — blue    */
+.gob-c2{color:#a78bfa}                          /* 2x–5x   — purple  */
+.gob-c3{color:#c084fc}                          /* 5x–10x  — violet  */
+.gob-c4{color:var(--gold);text-shadow:0 0 8px rgba(245,197,24,.5)}   /* 10x–30x — gold   */
+.gob-c5{color:#ff6b1a;text-shadow:0 0 10px rgba(255,107,26,.6);animation:gobPulse 1.8s ease-in-out infinite} /* 30x+ — fire */
+
+@keyframes gobPulse{0%,100%{opacity:1}50%{opacity:.65}}
+
+/* The "···" more button on the right */
+.gob-more{
+  flex-shrink:0;
+  font-size:.75rem;
+  color:var(--muted);
+  padding:0 .4rem;
+  cursor:default;
+  letter-spacing:2px;
+}
+.gob-close{
+  flex-shrink:0;
+  background:none;
+  border:none;
+  color:rgba(255,255,255,.2);
+  font-size:.65rem;
+  width:1.2rem;
+  height:1.2rem;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  transition:.15s;
+  margin-left:.15rem;
+}
+.gob-close:hover{color:var(--red);background:rgba(255,68,85,.1)}
