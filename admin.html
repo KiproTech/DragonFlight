@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dragon Flight — Super Admin</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐉</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -416,41 +417,61 @@ tr:hover td{background:rgba(255,255,255,.012)}
       <div class="page-title">🔮 Crash Preview</div>
       <div class="page-sub">Pre-generated crash points — only visible to admins. Players never see this.</div>
       <div class="preview-alert">🔒 This data is generated server-side using HMAC-SHA256 before each round. Players cannot access this table.</div>
+      <div id="queueWarnBanner" style="display:none;background:rgba(255,50,50,.1);border:1px solid rgba(255,80,80,.35);border-radius:8px;padding:.6rem 1rem;font-size:.8rem;color:#ff6b6b;margin-bottom:.75rem"></div>
 
-      <div class="preview-hero">
+      <div class="preview-hero" style="grid-template-columns:repeat(4,1fr)">
         <div class="preview-card">
-          <div class="pc-label">Current Round</div>
+          <div class="pc-label">Last Played Round</div>
           <div class="pc-value" style="color:var(--gold)" id="pvCurRound">—</div>
           <div class="pc-sub" id="pvCurStatus">Loading...</div>
         </div>
         <div class="preview-card highlight">
-          <div class="pc-label">Current Round Crash</div>
+          <div class="pc-label">🔴 #1 Next Up</div>
           <div class="pc-value" style="color:var(--fire)" id="pvCurCrash">🔒</div>
-          <div class="pc-sub">Live — crashes here</div>
+          <div class="pc-sub">Round <span id="pvNextRound0">—</span> — queued</div>
         </div>
         <div class="preview-card next">
-          <div class="pc-label">Next Round Crash</div>
+          <div class="pc-label">#2 Round After Next</div>
           <div class="pc-value" style="color:var(--blue)" id="pvNextCrash">—</div>
           <div class="pc-sub">Round <span id="pvNextRound">—</span></div>
+        </div>
+        <div class="preview-card" style="border-color:rgba(34,217,122,.3)">
+          <div class="pc-label">Queue Size</div>
+          <div class="pc-value" style="color:var(--green)" id="pvQueueSize">—</div>
+          <div class="pc-sub">rounds pre-generated</div>
         </div>
       </div>
 
       <div class="tcard">
         <div class="thead2">
-          <div class="ttitle">Upcoming 20 Rounds</div>
+          <div>
+            <div class="ttitle">Next 20 Upcoming Crashes <span id="queueCountLabel" style="font-size:.72rem;color:var(--muted);font-weight:400;margin-left:.5rem"></span></div>
+            <div style="font-size:.7rem;color:var(--muted);margin-top:2px">Ordered by round number — first row is the very next crash point</div>
+          </div>
           <div style="display:flex;gap:7px;align-items:center">
-            <button class="fbtn" onclick="regenPreview()" style="padding:.32rem .75rem;font-size:.75rem">🔄 Regenerate Queue</button>
+            <button class="fbtn" onclick="regenPreview()" style="padding:.32rem .75rem;font-size:.75rem">🔄 Regenerate 100 Rounds</button>
             <button class="fbtn" onclick="loadPreview()" style="padding:.32rem .75rem;font-size:.75rem">↺ Refresh</button>
           </div>
         </div>
         <table>
-          <thead><tr><th>Round #</th><th>Crash Point</th><th>Category</th><th>Risk</th><th>Server Hash (first 16)</th><th>Status</th></tr></thead>
+          <thead><tr><th>#</th><th>Round #</th><th>Crash Point</th><th>Category</th><th>Risk</th><th>Server Hash (first 16)</th><th>Status</th></tr></thead>
           <tbody id="previewTable"></tbody>
         </table>
       </div>
 
+      <div class="tcard" style="margin-top:1.2rem">
+        <div class="thead2">
+          <div class="ttitle">Full Queue <span style="font-size:.7rem;color:var(--muted);font-weight:400">(all unused rounds)</span></div>
+          <div id="fullQueueCountLabel" style="font-size:.72rem;color:var(--muted)"></div>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Round #</th><th>Crash Point</th><th>Category</th><th>Server Hash (first 16)</th></tr></thead>
+          <tbody id="fullQueueTable"></tbody>
+        </table>
+      </div>
+
       <div class="tcard" style="padding:1.1rem 1.3rem">
-        <div class="ttitle" style="margin-bottom:.9rem">Upcoming Pattern</div>
+        <div class="ttitle" style="margin-bottom:.9rem">Crash Point Pattern <span style="font-size:.7rem;color:var(--muted);font-weight:400">(up to 100 rounds)</span></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap" id="previewPills"></div>
       </div>
     </div>
@@ -667,7 +688,22 @@ const SUPA_URL  = 'https://rwtezncoukiekayxuxje.supabase.co';
 const SUPA_ANON = 'sb_publishable_9JwkSoI9zm2oXu6tvZDRaw_2ebdCWtE';
 const sb = createClient(SUPA_URL, SUPA_ANON);
 
+// ── Service-role client — bypasses RLS for admin data reads ───
+// Get your service_role key from:
+// Supabase → Project Settings → API → service_role (secret key)
+const SUPA_SERVICE = 'REPLACE_WITH_YOUR_SERVICE_ROLE_KEY';
+const sbAdmin = (SUPA_SERVICE && SUPA_SERVICE !== 'REPLACE_WITH_YOUR_SERVICE_ROLE_KEY')
+  ? createClient(SUPA_URL, SUPA_SERVICE, { auth:{ autoRefreshToken:false, persistSession:false } })
+  : sb; // fallback to anon if not set (limited — some queries will fail RLS)
+
 // ── State ──────────────────────────────────────────────────────
+// Currency config (mirrors game.js CURR — used for balance crediting in approveDeposit)
+const CURRENCIES={
+  KES:{rate:130},UGX:{rate:3700},TZS:{rate:2700},NGN:{rate:1600},
+  GHS:{rate:15}, ZAR:{rate:19}, RWF:{rate:1350},ETB:{rate:57},
+  USD:{rate:1},  GBP:{rate:0.79},EUR:{rate:0.92},INR:{rate:83},
+};
+
 let allRounds=[], allUsers=[], allBets=[], allPending=[], allTxs=[], allLogs=[];
 let filteredRounds=[], filteredUsers=[], filteredBets=[], filteredTxs=[];
 let editingUserId=null, rejectingTxId=null;
@@ -724,7 +760,7 @@ function showAdmin(){
     // the email-metadata fallback so a valid session is never rejected.
     let ud=null;
     try{
-      const {data}=await sb.from('users')
+      const {data}=await sbAdmin.from('users')
         .select('is_admin,username')
         .eq('id',session.user.id)
         .maybeSingle();
@@ -767,7 +803,7 @@ window.doLogin=async()=>{
   // Resolve username → email if no @ supplied
   let email=u;
   if(!u.includes('@')){
-    const {data:found}=await sb.from('users')
+    const {data:found}=await sbAdmin.from('users')
       .select('email').eq('username',u).maybeSingle();
     if(!found?.email){
       errEl.textContent='Username not found';
@@ -785,7 +821,7 @@ window.doLogin=async()=>{
   // Verify admin flag
   let ud=null;
   try{
-    const {data:row}=await sb.from('users')
+    const {data:row}=await sbAdmin.from('users')
       .select('is_admin,username')
       .eq('id',data.user.id).maybeSingle();
     ud=row;
@@ -815,7 +851,9 @@ window.doLogout=async()=>{
 
 // ── Load all data ──────────────────────────────────────────────
 async function loadAll(){
-  await Promise.all([loadRounds(),loadUsers(),loadPending(),loadAllTxs(),loadPreview(),loadAdminLogs()]);
+  // loadRounds MUST finish first — seedCrashQueue needs allRounds[0].round_number
+  await loadRounds();
+  await Promise.all([loadUsers(),loadPending(),loadAllTxs(),loadPreview(),loadAdminLogs()]);
   buildDashboard();
   updateLiveQueueBanner(); // populate banner from initial queue fetch
   subscribeDeposits();
@@ -824,7 +862,7 @@ async function loadAll(){
 }
 
 async function loadRounds(){
-  const {data,error}=await sb.from('rounds').select('*').order('round_number',{ascending:false}).limit(200);
+  const {data,error}=await sbAdmin.from('rounds').select('*').order('round_number',{ascending:false}).limit(200);
   if(error){
     console.error('loadRounds error:',error.message,error.code);
     toast2('Rounds load failed: '+error.message,'l');
@@ -838,7 +876,7 @@ async function loadRounds(){
 
 async function loadUsers(){
   // Exact columns from schema — no is_super_admin, is_bot=false filters real players
-  const {data,error}=await sb.from('users')
+  const {data,error}=await sbAdmin.from('users')
     .select('id,username,email,balance_real,balance_demo,total_wagered,total_won,total_profit,vip_tier,created_at,updated_at,is_banned,ban_reason,is_admin,is_bot,currency,last_login,referral_code,referred_by,streak_day,last_bonus_date')
     .eq('is_bot',false)
     .order('created_at',{ascending:false})
@@ -854,7 +892,7 @@ async function loadUsers(){
   renderUsersTable();
 
   // Bets: no round_number column on bets table — join to rounds via round_id
-  const {data:bData,error:bErr}=await sb.from('bets')
+  const {data:bData,error:bErr}=await sbAdmin.from('bets')
     .select('id,user_id,amount,cashout_multiplier,payout,profit,is_demo,is_bot,placed_at,cashed_out_at,round_id,currency,panel,auto_cashout_at,rounds(round_number,crash_point)')
     .eq('is_bot',false)
     .order('placed_at',{ascending:false})
@@ -872,7 +910,7 @@ async function loadUsers(){
 
 async function loadAllTxs(){
   // Exact schema columns for transactions table
-  const {data,error}=await sb.from('transactions')
+  const {data,error}=await sbAdmin.from('transactions')
     .select('id,user_id,type,amount,currency,method,status,reference,description,metadata,created_at,updated_at,phone_number,paybill_number,account_ref,payment_ref,screenshot_url,approved_by,approved_at,rejected_at,rejected_by,reject_reason,usd_equivalent,exchange_rate')
     .order('created_at',{ascending:false})
     .limit(500);
@@ -886,12 +924,15 @@ async function loadAllTxs(){
 }
 
 async function loadPending(){
-  // Exact schema columns
-  const {data,error}=await sb.from('transactions')
-    .select('id,user_id,type,amount,currency,usd_equivalent,exchange_rate,method,status,phone_number,paybill_number,account_ref,payment_ref,reference,screenshot_url,created_at,reject_reason,metadata')
+  // No join — fetch pending deposits then resolve usernames from allUsers cache.
+  // (Avoids PGRST201 "ambiguous relationship" when transactions has multiple FKs to users.)
+  const {data,error}=await sb
+    .from('transactions')
+    .select('id,user_id,amount,currency,method,phone_number,payment_ref,reference,screenshot_url,usd_equivalent,exchange_rate,paybill_number,account_ref,reject_reason,metadata,created_at')
     .eq('type','deposit')
     .eq('status','pending')
-    .order('created_at',{ascending:true});
+    .order('created_at',{ascending:false});
+
   if(error){
     console.error('loadPending error:',error.message,error.code);
     toast2('Pending deposits load failed: '+error.message,'l');
@@ -899,9 +940,10 @@ async function loadPending(){
   }else{
     allPending=(data||[]).map(d=>({
       ...d,
-      username:allUsers.find(u=>u.id===d.user_id)?.username||'Unknown',
-      email:allUsers.find(u=>u.id===d.user_id)?.email||'',
-      minutes_waiting:Math.round((Date.now()-new Date(d.created_at))/60000),
+      status:'pending',
+      username: allUsers.find(u=>u.id===d.user_id)?.username || 'Unknown',
+      email:    allUsers.find(u=>u.id===d.user_id)?.email    || '',
+      minutes_waiting: Math.round((Date.now()-new Date(d.created_at))/60000),
     }));
   }
   renderPendingList();
@@ -909,7 +951,7 @@ async function loadPending(){
 }
 
 async function loadAdminLogs(){
-  const {data}=await sb.from('admin_logs')
+  const {data}=await sbAdmin.from('admin_logs')
     .select('*').order('created_at',{ascending:false}).limit(100);
   allLogs=data||[];
   renderAdminLogs();
@@ -917,20 +959,49 @@ async function loadAdminLogs(){
 
 async function loadPreview(){
   // Load crash_queue (admin-only table) — unused entries ordered by round_number
-  const {data,error}=await sb.from('crash_queue')
+  const {data:rawData,error}=await sbAdmin.from('crash_queue')
     .select('*').eq('is_used',false)
-    .order('round_number',{ascending:true}).limit(25);
+    .order('round_number',{ascending:true}).limit(50);
 
+  // If table is missing / RLS blocks it — try to seed then re-render
   if(error){
-    await seedCrashQueue();return;
+    console.warn('[Admin] crash_queue fetch error:',error.message);
+    showPreviewEmpty('DB error: '+error.message+' — check RLS policies on crash_queue');
+    seedCrashQueue(); // attempt seed in background
+    return;
   }
-  if(!data||data.length<5){await seedCrashQueue();return;}
+
+  const data=rawData||[];
+
+  // If queue is empty or low — seed in background but still render what we have
+  if(data.length<10){
+    console.log('[Admin] Queue low ('+data.length+') — auto-seeding 100 rounds…');
+    seedCrashQueue(); // non-blocking; will reload after
+    if(data.length===0){
+      showPreviewEmpty('Queue is empty — generating 100 rounds now, refresh in a moment…');
+      return;
+    }
+    // If some data exists, fall through and render it
+  }
 
   // Cache so updateLiveQueueBanner() can read it without another query
   _queueCache=data;
 
-  const current=allRounds[0];
-  const curRound=current?.round_number||1;
+  // Update queue count labels
+  const qcl=document.getElementById('queueCountLabel');
+  if(qcl)qcl.textContent='('+data.length+' round'+(data.length!==1?'s':'')+' in queue)';
+  const fqcl=document.getElementById('fullQueueCountLabel');
+  if(fqcl)fqcl.textContent=data.length+' unused rounds remaining';
+
+  // Update queue size hero card
+  const pvQS=document.getElementById('pvQueueSize');
+  if(pvQS){
+    pvQS.textContent=data.length;
+    pvQS.style.color=data.length<=10?'var(--red)':data.length<=25?'var(--gold)':'var(--green)';
+  }
+
+  const current=allRounds[0]; // last played round
+  const curRound=current?.round_number||0;
 
   // ── Preview page hero cards ─────────────────────────────────
   const pvCurRound=document.getElementById('pvCurRound');
@@ -938,21 +1009,23 @@ async function loadPreview(){
   const pvCurCrash=document.getElementById('pvCurCrash');
   const pvNextCrash=document.getElementById('pvNextCrash');
   const pvNextRound=document.getElementById('pvNextRound');
+  const pvNextRound0=document.getElementById('pvNextRound0');
 
-  if(pvCurRound)pvCurRound.textContent='#'+curRound;
-  if(pvCurStatus)pvCurStatus.textContent=current?.status||'waiting';
+  // Last played round info
+  if(pvCurRound)pvCurRound.textContent=curRound?'#'+curRound:'—';
+  if(pvCurStatus)pvCurStatus.textContent=current?.status||'—';
 
-  // Active crash = first unused queue entry (what game.js will use next)
+  // #1 next up = data[0] (smallest unused round_number)
   const active=data[0];
+  // #2 round after next = data[1]
   const next  =data[1];
 
-  // Show the queued crash for the CURRENT round in the "Current Round Crash" card
   if(pvCurCrash&&active){
     pvCurCrash.textContent=parseFloat(active.crash_point).toFixed(2)+'x';
-    // Colour-code by severity
     const cp=parseFloat(active.crash_point);
     pvCurCrash.style.color=cp<1.5?'var(--red)':cp<3?'var(--gold)':'var(--green)';
   }
+  if(pvNextRound0&&active)pvNextRound0.textContent='#'+active.round_number;
 
   if(next&&pvNextCrash){
     pvNextCrash.textContent=parseFloat(next.crash_point).toFixed(2)+'x';
@@ -962,56 +1035,129 @@ async function loadPreview(){
 
   // Dashboard stat card
   const dNext=document.getElementById('dNextCrash');
-  if(dNext&&active)dNext.textContent=parseFloat(active.crash_point).toFixed(2)+'x';
+  if(dNext&&active)dNext.textContent=parseFloat(active.crash_point).toFixed(2)+'x (Round #'+active.round_number+')';
 
-  // ── Upcoming table ──────────────────────────────────────────
+  // ── Queue health warning ────────────────────────────────────
+  const qWarnEl=document.getElementById('queueWarnBanner');
+  if(qWarnEl){
+    if(data.length<=10){
+      qWarnEl.style.display='';
+      qWarnEl.textContent='⚠️ Only '+data.length+' rounds left in queue — auto-refill triggered. If game stalls, click Regenerate Queue.';
+    } else {
+      qWarnEl.style.display='none';
+    }
+  }
+
+  // ── First 20 upcoming — prominent table ─────────────────────
+  const first20=data.slice(0,20);
   const previewTable=document.getElementById('previewTable');
   if(previewTable){
-    previewTable.innerHTML=data.slice(0,20).map((r,idx)=>{
+    previewTable.innerHTML=first20.map((r,idx)=>{
       const isFirst=idx===0;
-      const rowStyle=isFirst?'background:rgba(255,107,26,.06)':'';
+      const rowStyle=isFirst
+        ?'background:rgba(255,107,26,.10);border-left:3px solid var(--fire);'
+        :idx<3?'background:rgba(255,107,26,.03);':'' ;
       const statusBadge=isFirst
-        ?'<span class="badge bg-gold" style="font-size:.6rem">▶ NEXT</span>'
-        :'<span class="badge bg-blue">Queued</span>';
+        ?'<span class="badge bg-gold" style="font-size:.6rem">▶ NEXT UP</span>'
+        :'<span class="badge bg-blue" style="font-size:.6rem">Queued</span>';
+      const cp=parseFloat(r.crash_point).toFixed(2);
+      const cpColor=r.crash_point<1.5?'var(--red)':r.crash_point<3?'var(--gold)':'var(--green)';
       return`<tr style="${rowStyle}">
-        <td style="font-family:'Share Tech Mono',monospace">#${r.round_number}${isFirst?' <span style="font-size:.6rem;color:var(--fire)">◀ active</span>':''}</td>
-        <td><span class="crash-val ${cvCls(r.crash_point)}" style="font-size:${isFirst?'1.15rem':'1rem'};font-weight:${isFirst?700:500}">${parseFloat(r.crash_point).toFixed(2)}x</span></td>
+        <td style="font-family:'Share Tech Mono',monospace;color:var(--muted);font-size:.75rem">${idx+1}</td>
+        <td style="font-family:'Share Tech Mono',monospace;font-weight:${isFirst?700:500};color:${isFirst?'var(--fire)':'inherit'}">#${r.round_number}${isFirst?' 🔥':''}</td>
+        <td><span style="font-size:${isFirst?'1.25rem':'1rem'};font-weight:700;color:${cpColor};font-family:'Share Tech Mono',monospace">${cp}x</span></td>
         <td><span class="badge ${r.crash_point<1.5?'bg-red':r.crash_point<3?'bg-gold':'bg-green'}">${cpCat(r.crash_point)}</span></td>
-        <td style="font-size:.82rem">${riskLabel(r.crash_point)}</td>
-        <td style="font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted)">${(r.server_hash||'').substring(0,16)}…</td>
+        <td style="font-size:.8rem;color:var(--muted)">${riskLabel(r.crash_point)}</td>
+        <td style="font-family:'Share Tech Mono',monospace;font-size:.68rem;color:var(--muted)">${(r.server_hash||'').substring(0,14)}…</td>
         <td>${statusBadge}</td>
       </tr>`;
     }).join('');
   }
 
-  // ── Pattern pills ───────────────────────────────────────────
+  // ── Full queue table (all remaining after first 20) ──────────
+  const fullQueueTable=document.getElementById('fullQueueTable');
+  if(fullQueueTable){
+    const rest=data.slice(20);
+    if(rest.length===0){
+      fullQueueTable.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1rem;font-size:.8rem">No additional rounds beyond the first 20 queued</td></tr>`;
+    }else{
+      fullQueueTable.innerHTML=rest.map((r,idx)=>{
+        const cp=parseFloat(r.crash_point).toFixed(2);
+        const cpColor=r.crash_point<1.5?'var(--red)':r.crash_point<3?'var(--gold)':'var(--green)';
+        return`<tr>
+          <td style="font-family:'Share Tech Mono',monospace;color:var(--muted);font-size:.75rem">${idx+21}</td>
+          <td style="font-family:'Share Tech Mono',monospace">#${r.round_number}</td>
+          <td><span style="font-weight:700;color:${cpColor};font-family:'Share Tech Mono',monospace">${cp}x</span></td>
+          <td><span class="badge ${r.crash_point<1.5?'bg-red':r.crash_point<3?'bg-gold':'bg-green'}">${cpCat(r.crash_point)}</span></td>
+          <td style="font-family:'Share Tech Mono',monospace;font-size:.68rem;color:var(--muted)">${(r.server_hash||'').substring(0,14)}…</td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  // ── Pattern pills — show up to first 50 ─────────────────────
   const pillsEl=document.getElementById('previewPills');
   if(pillsEl){
-    pillsEl.innerHTML=data.slice(0,20).map((r,idx)=>`
-      <div class="cp-pill ${cpCls(r.crash_point)}" title="Round #${r.round_number}"
-        style="${idx===0?'outline:2px solid var(--fire);outline-offset:2px':''}">
+    pillsEl.innerHTML=data.map((r,idx)=>`
+      <div class="cp-pill ${cpCls(r.crash_point)}" title="Round #${r.round_number} — ${parseFloat(r.crash_point).toFixed(2)}x (#${idx+1} upcoming)"
+        style="${idx===0?'outline:2px solid var(--fire);outline-offset:2px;transform:scale(1.1)':idx<20?'outline:1px solid rgba(255,107,26,.25);outline-offset:1px':''}cursor:default">
         ${parseFloat(r.crash_point).toFixed(2)}x
       </div>
     `).join('');
   }
 }
 
+// Helper: show an empty-state message in the preview table + pills
+function showPreviewEmpty(msg){
+  const pt=document.getElementById('previewTable');
+  if(pt)pt.innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem;font-size:.82rem">⏳ ${msg}</td></tr>`;
+  const fqt=document.getElementById('fullQueueTable');
+  if(fqt)fqt.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1rem;font-size:.8rem">⏳ ${msg}</td></tr>`;
+  const pp=document.getElementById('previewPills');
+  if(pp)pp.innerHTML=`<div style="color:var(--muted);font-size:.78rem;padding:.5rem">⏳ ${msg}</div>`;
+  const qcl=document.getElementById('queueCountLabel');
+  if(qcl)qcl.textContent='(0 queued)';
+  const fqcl=document.getElementById('fullQueueCountLabel');
+  if(fqcl)fqcl.textContent='0 rounds';
+}
+
+// Guard so seedCrashQueue never runs concurrently
+let _seedingInProgress=false;
+
 async function seedCrashQueue(){
-  // Get the next round number
-  const nextRound=(allRounds[0]?.round_number||0)+1;
-  const {data,error}=await sb.rpc('seed_crash_queue',{p_from_round:nextRound,p_count:50});
-  if(error){
-    toast2('Could not seed crash queue — run seed_crash_queue() in Supabase SQL','l');
-  }else{
-    toast2('Crash queue seeded for next 50 rounds ✓','g');
-    await loadPreview();
+  if(_seedingInProgress)return;
+  _seedingInProgress=true;
+  try{
+    // Use highest round_number across played rounds AND existing queue to avoid gaps
+    const {data:lastQ}=await sbAdmin.from('crash_queue')
+      .select('round_number').order('round_number',{ascending:false}).limit(1).single();
+    const fromRounds=(allRounds[0]?.round_number)||0;
+    const fromQueue=(lastQ?.round_number)||0;
+    const nextRound=Math.max(fromRounds,fromQueue)+1;
+
+    const {error}=await sbAdmin.rpc('seed_crash_queue',{p_from_round:nextRound,p_count:100});
+    if(error){
+      console.error('[Admin] seed_crash_queue RPC error:',error.message);
+      toast2('Queue seed failed — ensure seed_crash_queue() RPC exists in Supabase','l');
+    }else{
+      toast2('✅ Crash queue seeded — 100 rounds from #'+nextRound,'g');
+      await loadPreview(); // safe: _seedingInProgress guards re-entry
+    }
+  }finally{
+    _seedingInProgress=false;
   }
 }
 
 window.regenPreview=async()=>{
-  const nextRound=(allRounds[0]?.round_number||0)+1;
-  // Delete existing queue for future rounds
-  await sb.from('crash_queue').delete().eq('is_used',false).gte('round_number',nextRound);
+  // Use the highest round_number from either allRounds or _queueCache to avoid gaps
+  const latestRound=Math.max(
+    allRounds[0]?.round_number||0,
+    (_queueCache.length?_queueCache[_queueCache.length-1]?.round_number:0)||0
+  );
+  const nextRound=latestRound+1;
+  toast2('Regenerating 100 crash points from round #'+nextRound+'…','i');
+  // Delete only unused queue entries at/after nextRound
+  await sbAdmin.from('crash_queue').delete().eq('is_used',false).gte('round_number',nextRound);
   await seedCrashQueue();
 };
 
@@ -1021,24 +1167,25 @@ function subscribeDeposits(){
   if(Notification.permission==='default') Notification.requestPermission();
 
   sb.channel('admin-deposits')
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'transactions',filter:'type=eq.deposit'},async payload=>{
-      const tx=payload.new;
-      if(tx.status!=='pending')return;
-      // Reload to get username
-      await loadPending();
-      await loadAllTxs();
-      const usr=allUsers.find(u=>u.id===tx.user_id);
-      const name=usr?.username||'A player';
-      // Browser notification
-      if(Notification.permission==='granted'){
-        new Notification('💰 New Deposit — Dragon Flight',{
-          body:`${name} deposited ${tx.currency} ${parseFloat(tx.amount||0).toFixed(2)} via ${tx.method||'unknown'}`,
-          icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐉</text></svg>'
-        });
+    .on(
+      'postgres_changes',
+      { event:'INSERT', schema:'public', table:'transactions', filter:'type=eq.deposit' },
+      async payload => {
+        const tx=payload.new;
+        console.log('New deposit received:',tx);
+        await loadPending();   // refresh full list (fetches username via join)
+        await loadAllTxs();
+        buildDashboard();
+        const name=allUsers.find(u=>u.id===tx.user_id)?.username||'A player';
+        if(Notification.permission==='granted'){
+          new Notification('\u{1F4B0} New Deposit \u2014 Dragon Flight',{
+            body:`${name} deposited ${tx.currency} ${parseFloat(tx.amount||0).toFixed(2)} via ${tx.method||'unknown'}`,
+            icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">\u{1F409}</text></svg>'
+          });
+        }
+        toast2(`\u{1F4B0} New deposit \u2014 ${tx.currency} ${parseFloat(tx.amount||0).toFixed(2)}`,'w');
       }
-      toast2(`💰 New deposit from ${name} — ${tx.currency} ${parseFloat(tx.amount||0).toFixed(2)}`,'w');
-      buildDashboard();
-    })
+    )
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'transactions'},()=>{
       loadPending();loadAllTxs();buildDashboard();
     })
@@ -1094,10 +1241,10 @@ function updateLiveQueueBanner(){
     el('lqStatus').className='badge '+(st==='flying'?'bg-green':st==='crashed'?'bg-red':'bg-blue');
   }
 
-  // Also update preview-page hero cards
-  if(el('pvCurRound'))el('pvCurRound').textContent='#'+curNum;
-  if(el('pvCurStatus'))el('pvCurStatus').textContent=current?.status||'waiting';
+  if(el('pvCurRound'))el('pvCurRound').textContent=curNum?'#'+curNum:'—';
+  if(el('pvCurStatus'))el('pvCurStatus').textContent=current?.status||'—';
   if(active&&el('pvCurCrash'))el('pvCurCrash').textContent=parseFloat(active.crash_point).toFixed(2)+'x';
+  if(active&&el('pvNextRound0'))el('pvNextRound0').textContent='#'+active.round_number;
 }
 
 // Subscribe to crash_queue changes — fires when game.js marks is_used=true
@@ -1122,7 +1269,7 @@ function buildDashboard(){
   const crashes=allRounds.map(r=>parseFloat(r.crash_point)).filter(Boolean);
   const avg=crashes.length?(crashes.reduce((a,b)=>a+b,0)/crashes.length).toFixed(2):'—';
   const totalDeps=allTxs.filter(t=>t.type==='deposit'&&t.status==='completed')
-    .reduce((s,t)=>s+(parseFloat(t.usd_equivalent||t.amount)||0),0);
+    .reduce((s,t)=>s+(parseFloat(t.amount)||0),0);
   const activeRecently=allUsers.filter(u=>u.last_login&&(Date.now()-new Date(u.last_login))<3600000).length;
 
   document.getElementById('dRevenue').textContent='◈'+fmtK(rev);
@@ -1138,11 +1285,20 @@ function buildDashboard(){
 }
 
 function buildBarChart(){
-  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  const slice=allRounds.slice(-70);
-  const dayData=days.map((_,i)=>{const s=slice.slice(i*10,i*10+10);return{profit:s.reduce((t,r)=>t+(parseFloat(r.house_profit)||0),0),lbl:days[i]};});
+  // Build real per-day profit using actual round dates (last 7 calendar days)
+  const dayLabels=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const now=new Date();
+  const dayData=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(now);d.setDate(d.getDate()-i);
+    const dayStr=d.toDateString();
+    const profit=allRounds
+      .filter(r=>r.created_at&&new Date(r.created_at).toDateString()===dayStr)
+      .reduce((t,r)=>t+(parseFloat(r.house_profit)||0),0);
+    dayData.push({profit,lbl:dayLabels[d.getDay()]});
+  }
   const mx=Math.max(...dayData.map(d=>Math.abs(d.profit)))||1;
-  document.getElementById('profitChart').innerHTML=dayData.map(d=>`<div class="bar-w"><div class="bar ${d.profit>=0?'profit':'loss'}" style="height:${Math.max(4,Math.abs(d.profit)/mx*68)}px"></div><div class="bar-lbl">${d.lbl}</div></div>`).join('');
+  document.getElementById('profitChart').innerHTML=dayData.map(d=>`<div class="bar-w"><div class="bar ${d.profit>=0?'profit':'loss'}" style="height:${Math.max(4,Math.abs(d.profit)/mx*68)}px" title="${d.lbl}: ◈${d.profit.toFixed(2)}"></div><div class="bar-lbl">${d.lbl}</div></div>`).join('');
 }
 
 function renderDashRounds(){
@@ -1198,7 +1354,7 @@ function renderPendingList(){
         </div>
         <div style="text-align:right">
           <div class="dep-amt">${d.currency||'KES'} ${parseFloat(d.amount||0).toFixed(2)}</div>
-          <div class="dep-usd">≈ $${parseFloat(d.usd_equivalent||0).toFixed(4)} USD</div>
+          <div class="dep-usd">🎁 +◈${Math.floor((d.amount||0)*0.1)} bonus coins on approval</div>
           <div class="${wait>30?'wait-badge':'wait-badge ok'}">${wait>30?'⚠️ Waiting long':'⏳ Pending'}</div>
         </div>
       </div>
@@ -1207,63 +1363,105 @@ function renderPendingList(){
         <div class="dep-meta-item"><span class="dep-meta-label">Account Ref</span><span class="dep-meta-val">${d.account_ref||'—'}</span></div>
         <div class="dep-meta-item"><span class="dep-meta-label">Payment Ref / Code</span><span class="dep-meta-val">${d.payment_ref||d.reference||'—'}</span></div>
         <div class="dep-meta-item"><span class="dep-meta-label">Paybill Used</span><span class="dep-meta-val">${d.paybill_number||'—'}</span></div>
-        <div class="dep-meta-item"><span class="dep-meta-label">Exchange Rate</span><span class="dep-meta-val">${d.exchange_rate?parseFloat(d.exchange_rate).toFixed(2):'—'}</span></div>
         <div class="dep-meta-item"><span class="dep-meta-label">Submitted</span><span class="dep-meta-val">${timeAgo(d.created_at)}</span></div>
       </div>
       ${d.screenshot_url?`<div style="margin-bottom:.7rem"><a href="${d.screenshot_url}" target="_blank" style="font-size:.75rem;color:var(--blue);text-decoration:none">📎 View payment screenshot</a></div>`:''}
       <div class="dep-actions">
-        <button class="act-btn approve" onclick="approveDeposit('${d.id}','${d.username}')">✓ Approve & Credit</button>
+        <button class="act-btn approve" onclick="approveDeposit('${d.id}','${d.user_id}',${parseFloat(d.amount||0)},'${d.currency||'KES'}')">✓ Approve & Credit</button>
         <button class="act-btn reject" onclick="openReject('${d.id}')">✕ Reject</button>
       </div>
     </div>`;
   }).join('');
 }
 
-window.approveDeposit=async(txId,username)=>{
+// Track IDs currently being approved to prevent duplicate clicks
+const _approvingIds = new Set();
+
+// Currency rates: local currency units per 1 USD
+const CURRENCY_RATES = {
+  KES:130, UGX:3700, TZS:2700, NGN:1600, GHS:15,
+  ZAR:19,  RWF:1350, ETB:57,   GBP:0.79, EUR:0.92,
+  INR:83,  USD:1,
+};
+
+window.approveDeposit=async(txId,userId,amount,currency)=>{
+  // Prevent double-click / duplicate approval
+  if(_approvingIds.has(txId)){
+    toast2('Already processing — please wait...','i');
+    return;
+  }
+  _approvingIds.add(txId);
+
   const btn=event?.target;
   if(btn){btn.disabled=true;btn.textContent='Approving...';}
 
-  // Try RPC first (atomic: marks tx completed + credits balance)
-  const {data,error}=await sb.rpc('approve_deposit',{
-    p_transaction_id:txId,
-    p_admin_id:adminUser?.id&&adminUser.id!=='demo-admin'?adminUser.id:null
-  });
+  const adminId = adminUser?.id && adminUser.id!=='demo-admin' ? adminUser.id : null;
+  const dep     = allPending.find(p=>p.id===txId);
+  const name    = dep?.username || 'User';
+  const amtNum  = parseFloat(amount)||0;
+  const cur     = currency||'KES';
 
-  if(error||!data?.success){
-    // Fallback: direct update with correct column names from schema
-    const dep=allPending.find(p=>p.id===txId);
-    if(dep){
-      const {error:e1}=await sb.from('transactions').update({
-        status:'completed',
-        approved_by:adminUser?.id&&adminUser.id!=='demo-admin'?adminUser.id:null,
-        approved_at:new Date().toISOString()
-      }).eq('id',txId);
+  const release=(msg,type='l')=>{
+    _approvingIds.delete(txId);
+    if(btn){btn.disabled=false;btn.textContent='\u2713 Approve & Credit';}
+    if(msg) toast2(msg,type);
+  };
+  const refreshAll=async()=>{
+    await Promise.all([loadPending(),loadUsers(),loadAllTxs()]);
+    buildDashboard(); loadAdminLogs();
+  };
 
-      if(!e1){
-        // Credit the user's balance
-        const usr=allUsers.find(u=>u.id===dep.user_id);
-        if(usr){
-          const usdAmt=parseFloat(dep.usd_equivalent||0)||parseFloat(dep.amount||0);
-          await sb.from('users').update({
-            balance_real:parseFloat(usr.balance_real||0)+usdAmt
-          }).eq('id',dep.user_id);
-        }
-        dep.status='completed';
-        renderPendingList();updatePendingBadge();
-        toast2(`✓ ${username}'s deposit approved & balance credited`,'w');
-        await loadAdminLogs();
-        if(btn){btn.disabled=false;btn.textContent='✓ Approve & Credit';}
-        return;
-      }
+  // ── PATH A: approve_deposit RPC (atomic, prevents double-credit) ──
+  try{
+    const {data:rpcData,error:rpcErr}=await sbAdmin.rpc('approve_deposit',{
+      p_tx_id:txId, p_admin_id:adminId, p_amount:amtNum, p_currency:cur,
+    });
+    if(!rpcErr && rpcData?.success){
+      try{ await sbAdmin.from('admin_logs').insert({
+        admin_id:adminId, action:'approve_deposit', target_type:'transaction',
+        target_id:txId, details:{amount:amtNum,currency:cur,userId,new_balance:rpcData.new_balance},
+      }); }catch(_){}
+      release(`\u2705 ${name}'s deposit ${cur} ${amtNum.toFixed(2)} approved & credited!`,'w');
+      await refreshAll(); return;
     }
-    toast2((error?.message||'Approval failed — check RLS policies'),'l');
-    if(btn){btn.disabled=false;btn.textContent='✓ Approve & Credit';}
-    return;
+    if(rpcErr) console.warn('[Admin] RPC fallback:',rpcErr.message);
+  }catch(e){ console.warn('[Admin] RPC exception:',e.message); }
+
+  // ── PATH B: Manual fallback (if RPC not deployed yet) ────────
+  // Step 1: Check not already approved
+  const {data:existing}=await sbAdmin.from('transactions')
+    .select('status,approved_at').eq('id',txId).maybeSingle();
+  if(existing?.status==='completed'){
+    release('Already approved — no changes made.','i'); return;
   }
 
-  toast2(`✓ Approved — ${username}'s balance credited`,'w');
-  await loadPending();await loadAllTxs();buildDashboard();loadAdminLogs();
-  if(btn){btn.disabled=false;btn.textContent='✓ Approve & Credit';}
+  // Step 2: Mark completed (conditional — only if still pending, prevents double-credit)
+  const {error:txErr}=await sbAdmin.from('transactions').update({
+    status:'completed', approved_by:adminId,
+    approved_at:new Date().toISOString(), updated_at:new Date().toISOString(),
+  }).eq('id',txId).eq('status','pending');
+  if(txErr){ release('Approval failed: '+txErr.message,'l'); return; }
+
+  // Step 3: Credit balance directly in KES — NO USD conversion
+  // balance_real is stored in KES. amount is submitted in KES. Credit it as-is.
+  const {data:usr,error:usrErr}=await sbAdmin.from('users')
+    .select('balance_real').eq('id',userId).maybeSingle();
+  if(usrErr||!usr){ release('Tx approved but user not found — check balance manually','l'); return; }
+
+  const newBalance = parseFloat(((parseFloat(usr.balance_real)||0) + amtNum).toFixed(2));
+  const {error:balErr}=await sbAdmin.from('users').update({
+    balance_real: newBalance, updated_at: new Date().toISOString(),
+  }).eq('id',userId);
+  if(balErr){ release('Tx approved but balance update failed: '+balErr.message,'l'); return; }
+
+  // Step 4: Log
+  try{ await sbAdmin.from('admin_logs').insert({
+    admin_id:adminId, action:'approve_deposit', target_type:'transaction', target_id:txId,
+    details:{amount:amtNum, currency:cur, userId, kes_credited:amtNum, new_balance:newBalance},
+  }); }catch(_){}
+
+  release(`✅ ${name}: KSh ${amtNum.toFixed(2)} credited to balance`, 'w');
+  await refreshAll();
 };
 
 window.openReject=txId=>{
@@ -1274,26 +1472,36 @@ window.openReject=txId=>{
 window.closeModal2=()=>document.getElementById('rejectModal').classList.remove('open');
 
 window.confirmReject=async()=>{
-  const reason=document.getElementById('rejectReason').value||'Payment not verified';
-  const {data,error}=await sb.rpc('reject_deposit',{
-    p_transaction_id:rejectingTxId,
-    p_admin_id:adminUser?.id&&adminUser.id!=='demo-admin'?adminUser.id:null,
-    p_reason:reason
-  });
-  if(error||!data?.success){
-    // Fallback with correct column names
-    await sb.from('transactions').update({
-      status:'failed',
-      reject_reason:reason,
-      rejected_by:adminUser?.id&&adminUser.id!=='demo-admin'?adminUser.id:null,
-      rejected_at:new Date().toISOString()
-    }).eq('id',rejectingTxId);
-    const dep=allPending.find(p=>p.id===rejectingTxId);
-    if(dep){dep.status='failed';renderPendingList();updatePendingBadge();}
+  const reason=document.getElementById('rejectReason').value.trim()||'Payment not verified';
+  const adminId=adminUser?.id&&adminUser.id!=='demo-admin'?adminUser.id:null;
+
+  // Direct update — no RPC required
+  const {error}=await sbAdmin.from('transactions').update({
+    status      :'failed',
+    reject_reason: reason,
+    rejected_by : adminId,
+    rejected_at : new Date().toISOString(),
+  }).eq('id',rejectingTxId);
+
+  if(error){
+    toast2('Reject failed: '+error.message,'l');
+    return;
   }
-  toast2('Deposit rejected','g');
-  await loadPending();await loadAllTxs();loadAdminLogs();
+
+  await sbAdmin.from('admin_logs').insert({
+    admin_id   : adminId,
+    action     :'reject_deposit',
+    target_type:'transaction',
+    target_id  : rejectingTxId,
+    details    :{reason},
+  });
+
+  toast2('Deposit rejected ❌','g');
   closeModal2();
+  await loadPending();
+  await loadAllTxs();
+  buildDashboard();
+  loadAdminLogs();
 };
 
 // ── Rounds table ────────────────────────────────────────────────
@@ -1450,18 +1658,18 @@ window.saveUser=async()=>{
   u.balance_real=newBal;u.is_banned=newStatus==='banned';
 
   // Exact columns from schema — no 'notes' column exists
-  const {error}=await sb.from('users').update({
+  const {error}=await sbAdmin.from('users').update({
     balance_real:newBal,
     is_banned:u.is_banned,
     ban_reason:banReason||null,
   }).eq('id',editingUserId);
 
   if(!error){
-    await sb.from('admin_logs').insert({
+    await sbAdmin.from('admin_logs').insert({
       admin_id:adminUser?.id||null,
       action:'edit_user',target_type:'user',target_id:editingUserId,
       details:{balance_set:newBal,status:newStatus,note},
-    }).catch(()=>{});
+    });
     renderUsersTable();closeModal();
     toast2('User updated ✓','w');
     loadAdminLogs();
@@ -1470,15 +1678,15 @@ window.saveUser=async()=>{
   }
 };
 window.quickToggleBan=async(id,isBanned)=>{
-  const {error}=await sb.from('users').update({is_banned:!isBanned}).eq('id',id);
+  const {error}=await sbAdmin.from('users').update({is_banned:!isBanned}).eq('id',id);
   if(error){toast2('Failed: '+error.message,'l');return;}
   const u=allUsers.find(u=>u.id===id);if(u)u.is_banned=!isBanned;
   renderUsersTable();
   toast2(isBanned?'User unbanned ✓':'User banned ✓','g');
-  await sb.from('admin_logs').insert({
+  await sbAdmin.from('admin_logs').insert({
     admin_id:adminUser?.id||null,
     action:isBanned?'unban_user':'ban_user',target_type:'user',target_id:id,details:{},
-  }).catch(()=>{});
+  });
 };
 window.closeModal=()=>document.getElementById('userModal').classList.remove('open');
 
@@ -1582,21 +1790,21 @@ function renderAdminLogs(){
 // ── Settings ─────────────────────────────────────────────────────
 window.saveSettings=async type=>{
   if(type==='edge'){
-    await sb.from('game_settings').update({
+    await sbAdmin.from('game_settings').update({
       house_edge_pct:parseFloat(document.getElementById('sHouseEdge').value),
       min_bet:parseFloat(document.getElementById('sMinBet').value),
       max_bet:parseFloat(document.getElementById('sMaxBet').value),
       max_win_per_round:parseFloat(document.getElementById('sMaxWin').value),
     }).neq('id','00000000-0000-0000-0000-000000000000');
   }else if(type==='round'){
-    await sb.from('game_settings').update({
+    await sbAdmin.from('game_settings').update({
       wait_time_seconds:parseInt(document.getElementById('sWaitTime').value),
       ghost_player_count:parseInt(document.getElementById('sGhosts').value),
       game_status:document.getElementById('sGameStatus').value,
     }).neq('id','00000000-0000-0000-0000-000000000000');
   }else if(type==='paybill'){
-    await sb.from('paybill_config').update({paybill_number:document.getElementById('sPaybill').value,account_name:document.getElementById('sPaybillName').value}).eq('method','mpesa');
-    await sb.from('paybill_config').update({paybill_number:document.getElementById('sAirtel').value}).eq('method','airtel');
+    await sbAdmin.from('paybill_config').update({paybill_number:document.getElementById('sPaybill').value,account_name:document.getElementById('sPaybillName').value}).eq('method','mpesa');
+    await sbAdmin.from('paybill_config').update({paybill_number:document.getElementById('sAirtel').value}).eq('method','airtel');
   }
   toast2('Settings saved ✓','w');
 };

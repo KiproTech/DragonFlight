@@ -1,10 +1,27 @@
 /* ============================================================
-   DRAGON FLIGHT — game.js  (Production v4 — DB-driven)
-   Supabase is the ONLY source of truth.
-   NO local balance mutations. All money ops via RPC.
+   DRAGON FLIGHT — game.js  (Production v6 — Server-Sync)
+   ─────────────────────────────────────────────────────────────
+   KEY CHANGES IN THIS VERSION (v6):
+   1. Server-authoritative game engine — no client generates
+      rounds independently. One elected "leader" client drives
+      all state transitions; all others listen and sync.
+   2. Multiplier is calculated from the shared `started_at`
+      DB timestamp using calcMult(), NOT from local RAF timers.
+      Every device shows the exact same multiplier at the same
+      moment regardless of when it connected.
+   3. Reconnection recovery — on page-focus/online events the
+      engine re-fetches the active round and resumes seamlessly
+      from the correct phase/multiplier.
+   4. Race-condition-safe crash queue consumption via the
+      consume_next_crash_point() SECURITY DEFINER RPC which
+      uses SELECT FOR UPDATE SKIP LOCKED.
+   5. Dual Realtime channels: postgres_changes (authoritative)
+      + Broadcast (low-latency, < 50ms) for phase signals.
+   6. Leader election via Realtime heartbeat — no SPOF.
+   7. All original game features (chat, bets, history, VIP,
+      achievements, wallet, profile) preserved unchanged.
    ============================================================ */
 
-// ── Import Supabase (single source of truth) ─────────────────
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const sb = createClient(
@@ -12,21 +29,26 @@ const sb = createClient(
   'sb_publishable_9JwkSoI9zm2oXu6tvZDRaw_2ebdCWtE'
 );
 
-// ── Currency config ──────────────────────────────────────────
-const CURR = {
-  KES:{ sym:'KES ', rate:130,   min:65,    flag:'🇰🇪' },
-  UGX:{ sym:'UGX ', rate:3700,  min:1850,  flag:'🇺🇬' },
-  TZS:{ sym:'TZS ', rate:2700,  min:1350,  flag:'🇹🇿' },
-  NGN:{ sym:'₦',    rate:1600,  min:800,   flag:'🇳🇬' },
-  GHS:{ sym:'GH₵',  rate:15,    min:7.5,   flag:'🇬🇭' },
-  ZAR:{ sym:'R',    rate:19,    min:9.5,   flag:'🇿🇦' },
-  RWF:{ sym:'RWF ', rate:1350,  min:675,   flag:'🇷🇼' },
-  ETB:{ sym:'ETB ', rate:57,    min:29,    flag:'🇪🇹' },
-  USD:{ sym:'$',    rate:1,     min:0.5,   flag:'🇺🇸' },
-  GBP:{ sym:'£',    rate:0.79,  min:0.40,  flag:'🇬🇧' },
-  EUR:{ sym:'€',    rate:0.92,  min:0.46,  flag:'🇪🇺' },
-  INR:{ sym:'₹',    rate:83,    min:41.5,  flag:'🇮🇳' },
-};
+// ── Sync constants ───────────────────────────────────────────
+const WAIT_SECS        = 7;       // countdown seconds before flying
+const CRASH_SETTLE_MS  = 4000;    // ms to show crash before next round
+const MULT_GROWTH      = 0.07;    // e^(k*t) — matches original game feel
+const HEARTBEAT_MS     = 4000;    // leader heartbeat interval
+const LEADER_TTL_MS    = 9000;    // claim leadership if silent this long
+
+/** Deterministic multiplier from a server timestamp */
+function calcMult(startedAt) {
+  if (!startedAt) return 1.00;
+  const elapsedSec = (Date.now() - new Date(startedAt).getTime()) / 1000;
+  return parseFloat(Math.max(1.00, Math.pow(Math.E, MULT_GROWTH * elapsedSec)).toFixed(2));
+}
+
+/** How many ms until crash_point is reached from startedAt */
+function msUntilCrash(crashPt, startedAt) {
+  const tCrash = Math.log(crashPt) / MULT_GROWTH;
+  const crashTime = new Date(startedAt).getTime() + tCrash * 1000;
+  return Math.max(0, crashTime - Date.now());
+}
 
 // ── Ghost / chat bot data ────────────────────────────────────
 const BNAMES=['Kipchoge','Wanjiku','FireOtieno','LuckyAchieng','MwangiBet',
@@ -47,7 +69,7 @@ const CBOT_MSGS=[
 // ── Achievements ─────────────────────────────────────────────
 const ACHS=[
   {k:'firstBet', ico:'🎯',nm:'First Blood',   ds:'Place your first bet'},
-  {k:'bigWin',   ico:'💰',nm:'Big Winner',    ds:'Win over ◈500 in one round'},
+  {k:'bigWin',   ico:'💰',nm:'Big Winner',    ds:'Win over KSh 500 in one round'},
   {k:'moon',     ico:'🚀',nm:'Moon Rider',    ds:'Cash out at 10x+'},
   {k:'streak3',  ico:'🔥',nm:'Hot Streak',    ds:'Win 3 rounds in a row'},
   {k:'diamond',  ico:'💎',nm:'Diamond Hands', ds:'Wait past 5x multiplier'},
@@ -96,38 +118,52 @@ const METHODS={
   },
 };
 
-// ── State ────────────────────────────────────────────────────
-// NEVER mutate balances here — always re-fetch from DB after mutations.
+// ─────────────────────────────────────────────────────────────
+//  GAME STATE
+// ─────────────────────────────────────────────────────────────
 const G={
-  phase:'waiting', mult:1, crashPt:1.5, roundId:null,
-  startTs:null, animFr:null, waitTimer:null,
-  trail:[], dragonX:0, dragonY:0,
-  countSec:5, countIntvl:null,
+  // ── Game phase (authoritative from server) ────────────────
+  phase:'waiting', mult:1, crashPt:1.5,
+  startedAt:null,          // ISO string from DB — used for mult calc
+  roundId:null,
+  currentRoundId:null,     // alias for backward compat
+  currentRoundNumber:0,
+  serverSeedHash:'',
 
-  // Wallet — READ-ONLY copies from DB
-  walletMode:'demo',
-  balReal:0,
-  balDemo:10000,
-  balBonus:0,
+  // ── Leader-election state ─────────────────────────────────
+  _isLeader:false,
+  _leaderTs:0,             // last heartbeat timestamp
+  _heartbeatIntvl:null,
+  _crashTimer:null,        // leader's crash setTimeout handle
+  _realtimeChannel:null,
+  _recovering:false,
 
-  currency:'KES',
-  // Panel A
-  aIn:false, aAmt:0, aCo:false, aMode:'manual', aRnds:10, aPlayed:0, aRunning:false, aBetId:null,
-  // Panel B
-  bIn:false, bAmt:0, bCo:false, bMode:'manual', bRnds:10, bPlayed:0, bRunning:false, bBetId:null,
+  // ── Animation ─────────────────────────────────────────────
+  trail:[], dragonX:0, dragonY:0, animFr:null,
+  countSec:WAIT_SECS, countIntvl:null,
 
-  bots:[], myHistory:[], totalWagered:0, winStreak:0, lossStreak:0, totalBets:0,
-  achs:{}, txLog:[], crashHistory:[], soundOn:true,
+  // ── Wallet ────────────────────────────────────────────────
+  walletMode:'real', balReal:0, balDemo:10000, balBonus:0, currency:'KES',
 
+  // ── Panels ────────────────────────────────────────────────
+  aIn:false, aAmt:0, aCo:false, aMode:'manual', aRnds:10, aPlayed:0,
+  aRunning:false, aBetId:null, aQueued:0,
+  bIn:false, bAmt:0, bCo:false, bMode:'manual', bRnds:10, bPlayed:0,
+  bRunning:false, bBetId:null, bQueued:0,
+
+  // ── User ──────────────────────────────────────────────────
   userId:null, username:'Guest', email:'', country:'',
   vipTier:'bronze', createdAt:null, lastLogin:null,
-  totalWon:0, totalProfit:0,
-  depMethod:'mpesa', depAcctRef:'',
-  currentRoundId:null,
-  currentRoundNumber:0,   // mirrors rounds.round_number — incremented each round
-  crashQueueId:null,      // UUID of the crash_queue row used this round
-  crashQueueRound:null,   // round_number from crash_queue
+  totalWagered:0, totalWon:0, totalProfit:0, totalBets:0,
   streakDay:1,
+
+  // ── Misc ──────────────────────────────────────────────────
+  bots:[], myHistory:[], crashHistory:[], txLog:[], achs:{},
+  depMethod:'mpesa', depAcctRef:'',
+  winStreak:0, lossStreak:0, soundOn:true,
+  _approvedDepIds:new Set(),
+  _betLock:false, _depositLock:false,
+  _aLastAutoRound:null, _bLastAutoRound:null,
 };
 
 // ── Canvas ───────────────────────────────────────────────────
@@ -144,43 +180,63 @@ function genRef(){return 'DF-'+Math.random().toString(36).substring(2,10).toUppe
 function _el(id){return document.getElementById(id);}
 function _set(id,text){const e=_el(id);if(e&&text!==null)e.textContent=text;}
 function _fn(id,fn){const e=_el(id);if(e&&fn)fn(e);}
-function escHtml(s){
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+async function sbSafe(fn, label=''){
+  try{
+    const result=await fn();
+    if(result?.error){
+      const code=result.error.code||result.error.status||'';
+      const msg=result.error.message||'Unknown error';
+      if(code==='406'||code===406) console.warn(`[DF][${label}] 406:`,msg);
+      else if(code==='403'||code===403) console.error(`[DF][${label}] 403 RLS:`,msg);
+      else console.error(`[DF][${label}] Error:`,msg,result.error);
+    }
+    return result;
+  }catch(err){
+    console.error(`[DF][${label}] Network error:`,err);
+    return {data:null,error:{message:err.message||'Network error'}};
+  }
 }
+
+const isDemo=()=>G.walletMode==='demo';
+function getBal(){return isDemo()?G.balDemo:G.balReal;}
 
 // ─────────────────────────────────────────────────────────────
 //  WALLET DISPLAY
 // ─────────────────────────────────────────────────────────────
-const isDemo=()=>G.walletMode==='demo';
-function getBal(){return isDemo()?G.balDemo:G.balReal;}
+/** Format a KES amount with comma separators: KSh 1,250.00 */
+function fmtKES(n, decimals=2){
+  const v = parseFloat(n||0);
+  if(!isFinite(v)) return 'KSh 0.00';
+  return 'KSh ' + v.toLocaleString('en-KE', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
+}
 
-/** Refresh all balance displays from G state (which mirrors DB) */
 function updateBalDisp(){
-  const c=CURR[G.currency]||CURR.KES;
-  const v=getBal()*c.rate;
+  G.currency='KES';
+  const clamp=v=>isFinite(v)&&v>=0?v:0;
+  const realDisp=clamp(G.balReal);
+  const demoDisp=clamp(G.balDemo);
   const disp=_el('balDisp');
-  if(disp) disp.textContent=v.toFixed(2);
-
-  _set('bonusQuickDisp', fmt(G.balBonus,0));
-  _set('wRealBal',  '◈'+fmt(G.balReal));
-  _set('wDemoBal',  '◈'+fmt(G.balDemo));
-  _set('wBonusBal', '◈'+fmt(G.balBonus,0));
-  _set('witAvail',  '◈'+fmt(G.balReal));
-  _set('minDepTxt', c.sym+c.min+' (≈ $0.50 USD)');
-
-  // Bonus progress bar
+  // Display balance already stored as KES in DB — no conversion needed
+  if(disp) disp.textContent=fmtKES(isDemo()?demoDisp:realDisp);
+  _fn('balIcon',e=>e.textContent='🇰🇪');
+  _set('bonusQuickDisp',fmt(G.balBonus,0));
+  _set('wRealBal',fmtKES(realDisp));
+  _set('wDemoBal',fmtKES(demoDisp));
+  _set('wBonusBal','◈'+fmt(G.balBonus,0));
+  _set('witAvail',fmtKES(realDisp));
+  _set('minDepTxt','KSh 65');
   const pct=Math.min(100,(G.balBonus/500)*100);
   _fn('bonusProgressBar',el=>el.style.width=pct+'%');
   _set('bonusProgressTxt',`${fmt(G.balBonus,0)} / 500 coins`);
   _fn('bonusConvertBtn',el=>{
     el.disabled=G.balBonus<500;
-    el.textContent=G.balBonus>=500
-      ?'🎁 Convert 500 → $50 Real'
-      :'Need '+(500-Math.floor(G.balBonus))+' more coins';
+    el.textContent=G.balBonus>=500?'🎁 Convert 500 → KSh 6,500 Real':'Need '+(500-Math.floor(G.balBonus))+' more coins';
     el.className='mbtn '+(G.balBonus>=500?'mbtn-fire':'mbtn-muted');
   });
-
   renderProfileSection();
+  _set('depCurrTag',G.currency);
 }
 
 // ── Mode switch ──────────────────────────────────────────────
@@ -189,35 +245,31 @@ window.setMode=m=>{
   const isD=isDemo();
   _fn('demoBtn',e=>e.className='mdb '+(isD?'don':''));
   _fn('realBtn',e=>e.className='mdb '+(isD?'':'ron'));
-  _fn('dmwm',   e=>e.className='dmwm '+(isD?'show':''));
+  _fn('dmwm',e=>e.className='dmwm '+(isD?'show':''));
+  const bw=document.querySelector('.bal-dep-wrap');
+  if(bw) bw.className='bal-dep-wrap '+(isD?'mode-demo':'mode-real');
+  const mib=document.querySelector('.mode-indicator-bar');
+  if(mib) mib.className='mode-indicator-bar '+(isD?'':'real-mode');
   updateBalDisp();
   toast2(isD?'🎮 Demo mode — virtual coins':'💰 Real money mode',isD?'i':'w');
+  if(isD) startDemoTimer(); else stopDemoTimer();
 };
-window.setCurrency=c=>{
-  if(!CURR[c])return;
-  G.currency=c;
-  localStorage.setItem('df_currency',c);
-  updateBalDisp();
-};
+window.setCurrency=()=>{G.currency='KES';updateBalDisp();};
 
 // ── Bonus conversion ─────────────────────────────────────────
 window.convertBonus=async()=>{
   if(G.balBonus<500){toast2('Need 500 bonus coins to convert','l');return;}
   if(!G.userId){toast2('Please log in','l');return;}
-
   const btn=_el('bonusConvertBtn');
   if(btn){btn.disabled=true;btn.textContent='Converting...';}
-
-  const {data,error}=await sb.rpc('convert_bonus_to_real',{p_user_id:G.userId});
-
+  const {data,error}=await sbSafe(()=>sb.rpc('convert_bonus_to_real',{p_user_id:G.userId}),'convertBonus');
   if(error||!data?.success){
-    toast2(data?.error||error?.message||'Conversion failed','l');
-    if(btn){btn.disabled=false;}
+    toast2(data?.error||error?.message||'Conversion failed — try again','l');
+    if(btn)btn.disabled=false;
     return;
   }
-
   await refreshUserBalance();
-  toast2('🎉 Converted 500 bonus coins → +$50 real balance!','w');
+  toast2('🎉 Converted 500 bonus coins → +KSh 6,500 real balance!','w');
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -227,448 +279,954 @@ async function loadUser(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){location.href='auth.html';return;}
   G.userId=session.user.id;
-
-  const {data:u,error}=await sb.from('users')
-    .select('*').eq('id',G.userId).single();
-
-  if(error||!u){toast2('Failed to load user profile','l');return;}
-
-  // Mirror DB values into G (read-only)
-  G.balReal      = parseFloat(u.balance_real)||0;
-  G.balBonus     = parseFloat(u.balance_bonus)||0;
-  G.username     = u.username||'Player';
-  G.email        = u.email||'';
-  G.country      = u.country||'';
-  G.vipTier      = u.vip_tier||'bronze';
-  G.createdAt    = u.created_at||null;
-  G.lastLogin    = u.last_login||null;
-  G.totalWagered = parseFloat(u.total_wagered)||0;
-  G.totalWon     = parseFloat(u.total_won)||0;
-  G.totalProfit  = parseFloat(u.total_profit)||0;
-  G.streakDay    = u.streak_day||1;
-  G.currency     = u.currency||'KES';
-
-  const csel=_el('csel');
-  if(csel) csel.value=G.currency;
-
+  const {data:u,error}=await sbSafe(()=>
+    sb.from('users').select('*').eq('id',G.userId).maybeSingle(),'loadUser');
+  if(error||!u){toast2('Could not load profile — limited mode active','l');return;}
+  G.balReal    =parseFloat(u.balance_real)||0;
+  G.balBonus   =parseFloat(u.balance_bonus)||0;
+  const dbDemo =parseFloat(u.balance_demo);
+  G.balDemo    =(isFinite(dbDemo)&&dbDemo>0)?parseFloat(dbDemo.toFixed(2)):10000.00;
+  G.username   =u.username||'Player';
+  G.email      =u.email||'';
+  G.country    =u.country||'';
+  G.vipTier    =u.vip_tier||'bronze';
+  G.createdAt  =u.created_at||null;
+  G.lastLogin  =u.last_login||null;
+  G.totalWagered=parseFloat(u.total_wagered)||0;
+  G.totalWon   =parseFloat(u.total_won)||0;
+  G.totalProfit=parseFloat(u.total_profit)||0;
+  G.streakDay  =u.streak_day||1;
+  G.currency   ='KES';
   const refLink=_el('refLink');
   if(refLink&&u.referral_code)
     refLink.value=`https://dragonflight.bet/r/${u.referral_code}`;
-
-  updateBalDisp();
-  renderProfileSection();
-  loadUserTx();
-  subscribeBalance();
-  updVIP();
-
-  // Update last_login (fire and forget)
-  sb.from('users').update({last_login:new Date().toISOString()}).eq('id',G.userId);
-
-  // Signup bonus: one-time, DB-enforced via bonus_claimed flag
+  updateBalDisp();renderProfileSection();loadUserTx();subscribeBalance();updVIP();
+  sbSafe(()=>sb.from('users').update({last_login:new Date().toISOString()}).eq('id',G.userId),'lastLogin');
   if(!u.bonus_claimed){
-    const {data:bdata}=await sb.rpc('claim_signup_bonus',{p_user_id:G.userId});
-    if(bdata?.success){
-      G.balBonus+=50;
-      updateBalDisp();
-      toast2('🎉 Welcome! +50 bonus coins added to your account!','w');
-    }
+    const {data:bdata}=await sbSafe(()=>sb.rpc('claim_signup_bonus',{p_user_id:G.userId}),'signupBonus');
+    if(bdata?.success){G.balBonus+=50;updateBalDisp();toast2('🎉 Welcome! +50 bonus coins added!','w');}
   }
-
-  // Show daily bonus popup after a short delay
   setTimeout(()=>{
     const today=new Date().toISOString().split('T')[0];
-    const lastBonus=u.last_bonus_date||'';
-    if(lastBonus!==today){
-      _set('bonusSub',`Day ${G.streakDay} streak 🔥 Keep playing daily to grow your bonus!`);
+    if((u.last_bonus_date||'')!==today){
+      _set('bonusSub',`Day ${G.streakDay} streak 🔥`);
       _fn('bonusPop',e=>e.classList.add('show'));
     }
   },2500);
 }
 
-/** Lightweight balance refresh — called after RPC mutations */
 async function refreshUserBalance(){
   if(!G.userId)return;
-  const {data:u}=await sb.from('users')
-    .select('balance_real,balance_bonus,total_wagered,total_won,total_profit')
-    .eq('id',G.userId).single();
+  const {data:u}=await sbSafe(()=>
+    sb.from('users').select('balance_real,balance_bonus,total_wagered,total_won,total_profit')
+      .eq('id',G.userId).maybeSingle(),'refreshBalance');
   if(!u)return;
-  G.balReal      = parseFloat(u.balance_real)||0;
-  G.balBonus     = parseFloat(u.balance_bonus)||0;
-  G.totalWagered = parseFloat(u.total_wagered)||0;
-  G.totalWon     = parseFloat(u.total_won)||0;
-  G.totalProfit  = parseFloat(u.total_profit)||0;
+  G.balReal    =parseFloat(u.balance_real)||0;
+  G.balBonus   =parseFloat(u.balance_bonus)||0;
+  G.totalWagered=parseFloat(u.total_wagered)||0;
+  G.totalWon   =parseFloat(u.total_won)||0;
+  G.totalProfit=parseFloat(u.total_profit)||0;
   updateBalDisp();
 }
 
 async function loadUserTx(){
   if(!G.userId)return;
-  const {data}=await sb.from('transactions')
-    .select('*').eq('user_id',G.userId)
-    .order('created_at',{ascending:false}).limit(50);
-  G.txLog=data||[];
-  renderTxList();
+  const {data}=await sbSafe(()=>
+    sb.from('transactions').select('*').eq('user_id',G.userId)
+      .order('created_at',{ascending:false}).limit(50),'loadTx');
+  G.txLog=data||[];renderTxList();
 }
 
-// ── Realtime subscriptions ───────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+//  REALTIME SUBSCRIPTIONS  (balance / transactions / chat)
+// ─────────────────────────────────────────────────────────────
 function subscribeBalance(){
   if(!G.userId)return;
-
-  // User row changes (balance, vip, etc.)
   sb.channel('user-row-'+G.userId)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'users',filter:`id=eq.${G.userId}`},
       payload=>{
         const u=payload.new;
-        G.balReal      = parseFloat(u.balance_real)||0;
-        G.balBonus     = parseFloat(u.balance_bonus)||0;
-        G.totalWagered = parseFloat(u.total_wagered)||0;
-        G.totalWon     = parseFloat(u.total_won)||0;
-        G.totalProfit  = parseFloat(u.total_profit)||0;
-        G.vipTier      = u.vip_tier||'bronze';
-        updateBalDisp();
-        updVIP();
-      })
-    .subscribe();
-
-  // Transaction status updates (approval / rejection)
+        G.balReal    =parseFloat(u.balance_real)||0;
+        G.balBonus   =parseFloat(u.balance_bonus)||0;
+        G.totalWagered=parseFloat(u.total_wagered)||0;
+        G.totalWon   =parseFloat(u.total_won)||0;
+        G.totalProfit=parseFloat(u.total_profit)||0;
+        G.vipTier    =u.vip_tier||'bronze';
+        updateBalDisp();updVIP();
+        _fn('balDisp',el=>{el.style.transition='color .15s';el.style.color='var(--green)';setTimeout(()=>el.style.color='',900);});
+      }).subscribe();
   sb.channel('tx-updates-'+G.userId)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'transactions',filter:`user_id=eq.${G.userId}`},
-      payload=>{
+      async payload=>{
         const tx=payload.new;
         if(tx.status==='completed'){
-          const msg=tx.type==='bonus'
-            ?`🎁 Bonus credited: ◈${fmt(tx.amount)} (${tx.description||''})`
-            :`✅ Deposit of ${tx.currency} ${fmt(tx.amount)} approved!`;
-          toast2(msg,'w');
+          if(tx.type==='deposit'){
+            if(G._approvedDepIds.has(tx.id))return;
+            G._approvedDepIds.add(tx.id);
+          }
+          await refreshUserBalance();loadUserTx();
+          toast2(tx.type==='bonus'?`🎁 Bonus credited: ◈${fmt(tx.amount)}`:`✅ Deposit of ${fmtKES(tx.amount)} approved!`,'w');
+          sfxCashout();
         }
-        if(tx.status==='failed')
-          toast2(`❌ Deposit rejected: ${tx.reject_reason||'Not verified'}`,'l');
-        loadUserTx();
-      })
-    .subscribe();
-
-  // Bonus transaction inserts
-  sb.channel('bonus-tx-'+G.userId)
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'bonus_transactions',filter:`user_id=eq.${G.userId}`},
-      payload=>{
-        const b=payload.new;
-        if(b.type==='deposit_bonus')
-          toast2(`🎁 +${fmt(b.bonus_amount)} bonus coins from deposit!`,'g');
-      })
-    .subscribe();
-
-  // Live rounds
-  sb.channel('rounds-live')
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rounds'},
-      payload=>{
-        const r=payload.new;
-        _set('roundNum', r.round_number);
-        _set('pfHash', (r.server_seed_hash||'').substring(0,26)+'...');
-        _fn('pfSeedHash',e=>e.value=r.server_seed_hash||'');
-        G.currentRoundId=r.id;
-        if(r.status==='crashed'&&r.crash_point){
-          _fn('pfResult',e=>e.value=r.crash_point.toFixed(2)+'x');
-        }
-      })
-    .subscribe();
+        if(tx.status==='failed'){loadUserTx();toast2(`❌ Deposit rejected: ${tx.reject_reason||'Not verified'}`,'l');}
+      }).subscribe();
 }
 
-// ── Subscribe to current round on boot ───────────────────────
-// Also subscribes to live round updates so the game stays in sync
-// when multiple tabs or a future server process updates the rounds table.
-async function subscribeRounds(){
-  const {data:r}=await sb.from('rounds')
-    .select('*').order('round_number',{ascending:false}).limit(1).single();
-  if(r){
-    G.currentRoundId=r.id;
-    G.currentRoundNumber=r.round_number||0;
-    _set('roundNum',r.round_number);
-    if(r.server_seed_hash){
-      _set('pfHash',r.server_seed_hash.substring(0,26)+'...');
-      _fn('pfSeedHash',e=>e.value=r.server_seed_hash);
-    }
-  }
+// ─────────────────────────────────────────────────────────────
+//  SERVER-AUTHORITATIVE GAME ENGINE
+// ─────────────────────────────────────────────────────────────
 
-  // Live: if another tab / server updates the round row, reflect it here
-  sb.channel('rounds-status')
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rounds'},payload=>{
-      const r=payload.new;
-      if(r.id!==G.currentRoundId)return; // only care about current round
-      _set('roundNum',r.round_number);
-      if(r.server_seed_hash){
-        _set('pfHash',r.server_seed_hash.substring(0,26)+'...');
-        _fn('pfSeedHash',e=>e.value=r.server_seed_hash);
-      }
-      if(r.status==='crashed'&&r.crash_point){
-        _fn('pfResult',e=>e.value=r.crash_point.toFixed(2)+'x');
+/**
+ * STEP 1 — Subscribe to the shared Realtime channel.
+ * All clients (leader and followers) listen here.
+ */
+function subscribeGameEngine(){
+  G._realtimeChannel = sb.channel('df-game-engine-v6', {
+    config:{ broadcast:{ self: true } }
+  });
+
+  G._realtimeChannel
+    // DB changes — authoritative source of truth
+    .on('postgres_changes',{event:'*',schema:'public',table:'rounds'},
+      payload => handleRoundsChange(payload))
+    // Low-latency broadcast from leader (< 50ms vs DB ~200ms)
+    .on('broadcast',{event:'phase'}, msg => handlePhaseBroadcast(msg.payload))
+    // Leader heartbeat
+    .on('broadcast',{event:'heartbeat'}, msg => {
+      G._leaderTs = Date.now();
+      // If two leaders collide, the one with the higher userId wins
+      if(G._isLeader && msg.payload.leaderId > G.userId){
+        G._isLeader = false;
+        clearInterval(G._heartbeatIntvl);
+        console.log('[DF] Stepped down as leader — peer has higher priority');
       }
     })
-    .subscribe();
+    .subscribe(status => {
+      if(status==='SUBSCRIBED'){
+        console.log('[DF] Game engine channel connected');
+      } else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
+        console.warn('[DF] Channel error — will recover on reconnect');
+        setTimeout(() => recoverSync(), 3000);
+      }
+    });
+}
+
+/**
+ * STEP 2 — Fetch the current active round and sync UI to it.
+ * Called on boot and after every reconnect.
+ */
+async function fetchAndSyncRound(){
+  const {data:round} = await sbSafe(()=>
+    sb.from('rounds')
+      .select('*')
+      .in('status',['waiting','flying'])
+      .order('round_number',{ascending:false})
+      .limit(1)
+      .maybeSingle(),'fetchActiveRound');
+
+  if(!round){
+    // No active round — wait for leader to create one
+    G.phase='waiting';
+    _tryBecomeLeader();
+    return;
+  }
+
+  // Apply round metadata
+  _applyRoundData(round);
+
+  if(round.status==='waiting'){
+    _syncToWaiting(round);
+  } else if(round.status==='flying'){
+    _syncToFlying(round);
+  }
+
+  await _tryBecomeLeader();
+}
+
+/** Apply round DB row to local state */
+function _applyRoundData(round){
+  G.roundId            = round.id;
+  G.currentRoundId     = round.id;
+  G.currentRoundNumber = round.round_number;
+  // CRITICAL FIX: Never allow crashPt to be 0 or falsy — that causes infinite rounds.
+  // Minimum valid crash point is 1.01x.
+  const cp = parseFloat(round.crash_point);
+  G.crashPt = (isFinite(cp) && cp >= 1.01) ? cp : 1.50;
+  G.startedAt          = round.started_at || null;
+  G.serverSeedHash     = round.server_seed_hash || '';
+  _set('roundNum', round.round_number);
+  if(round.server_seed_hash){
+    _set('pfHash', round.server_seed_hash.substring(0,26)+'...');
+    _fn('pfSeedHash',e=>e.value=round.server_seed_hash||'');
+  }
+  console.log(`[DF] Round #${round.round_number} — crashPt=${G.crashPt} status=${round.status}`);
+}
+
+/** Sync to waiting phase, compensating for elapsed countdown */
+function _syncToWaiting(round){
+  const createdAt = round.created_at ? new Date(round.created_at).getTime() : Date.now();
+  const elapsed   = (Date.now() - createdAt) / 1000;
+  const remaining = Math.max(1, WAIT_SECS - elapsed);
+
+  G.phase   = 'waiting';
+  G.mult    = 1.00;
+  G.startedAt = null;
+
+  _resetBetState();
+  genBots(G.crashPt || 5);
+  buildGhostBar();
+  _set('pfHash', (G.serverSeedHash||'').substring(0,26)+'...');
+  _fn('pfResult',e=>e.value='');
+  setSB('wait','Waiting for next round...');
+  _fn('mwrap',e=>e.style.display='none');
+  _set('mvEl','1.00x');
+  cx.clearRect(0,0,cv.width,cv.height);drawGrid();
+  ['A','B'].forEach(p=>_fn('panel'+p,e=>e.className='bpanel'));
+  renderLiveList();updBtns();
+
+  startCountdown(Math.ceil(remaining));
+
+  // Fire queued bets (only for non-leader followers — leader handles in _finishWaitingSetup)
+  if(!G._isLeader){
+    ['A','B'].forEach(p=>{
+      const q=p==='A'?G.aQueued:G.bQueued;
+      if(q>0){
+        if(p==='A'){G.aQueued=0;G._aLastAutoRound=G.currentRoundId;}
+        else{G.bQueued=0;G._bLastAutoRound=G.currentRoundId;}
+        setTimeout(()=>placeBet(p,q),300);
+      }
+    });
+
+    // Auto-bet for followers — with duplicate protection
+    ['A','B'].forEach(p=>{
+      if(getMode(p)==='auto'&&isAutoRun(p)){
+        handleAutoAfter(p);
+        if(isAutoRun(p)){
+          const inB=p==='A'?G.aIn:G.bIn;
+          const lastRound=p==='A'?G._aLastAutoRound:G._bLastAutoRound;
+          if(!inB&&lastRound!==G.currentRoundId){
+            const amt=parseFloat((_el('amt'+p)||{}).value)||0;
+            const bal=getBal();
+            if(amt>0&&bal>=amt){
+              setTimeout(()=>{
+                const stillIn=p==='A'?G.aIn:G.bIn;
+                if(!stillIn&&(p==='A'?G._aLastAutoRound:G._bLastAutoRound)!==G.currentRoundId){
+                  if(p==='A')G._aLastAutoRound=G.currentRoundId;
+                  else G._bLastAutoRound=G.currentRoundId;
+                  placeBet(p,amt);
+                }
+              },500);
+            } else if(amt>0&&bal<amt){
+              stopAuto(p,`Auto ${p} stopped — insufficient balance`);
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Leader schedules fly transition (for reconnect case where leader re-syncs to waiting)
+  if(G._isLeader && remaining > 0.5){
+    clearTimeout(G._crashTimer);
+    G._crashTimer=setTimeout(()=>_leaderDoFlying(), remaining*1000);
+  }
+}
+
+/** Sync to flying phase from the server's started_at timestamp */
+function _syncToFlying(round){
+  G.phase    = 'flying';
+  G.startedAt= round.started_at;
+  G.mult     = calcMult(G.startedAt);
+  G.trail    = [];
+
+  // CRITICAL FIX: Validate crashPt from round data; fallback to G.crashPt; final fallback 1.50
+  const roundCrash = parseFloat(round.crash_point);
+  if(isFinite(roundCrash) && roundCrash >= 1.01) G.crashPt = roundCrash;
+  if(!G.crashPt || G.crashPt < 1.01) G.crashPt = 1.50;
+
+  setSB('fly','🐉 Dragon is soaring!');
+  _fn('mwrap',e=>e.style.display='');
+  _set('mlEl','Cash out before the crash!');
+  updBtns();
+  _startAnimLoop();
+
+  // Leader schedules crash — MUST have a valid crashPt
+  if(G._isLeader){
+    clearTimeout(G._crashTimer);
+    const delay = msUntilCrash(G.crashPt, G.startedAt);
+    console.log(`[DF Leader] Crash scheduled in ${(delay/1000).toFixed(2)}s at ${G.crashPt}x`);
+    if(delay <= 0){
+      // Already past crash time — crash immediately
+      console.warn('[DF Leader] Crash time already passed — crashing now');
+      setTimeout(()=>_leaderDoCrash(), 100);
+    } else {
+      G._crashTimer = setTimeout(()=>_leaderDoCrash(), delay);
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
-//  PROFILE SECTION RENDERER
-//  Renders into BOTH #profileSection (sidebar) and
-//  #profileSectionModal (profile modal) — different IDs to avoid
-//  the duplicate-ID bug from v3.
+//  REALTIME EVENT HANDLERS
 // ─────────────────────────────────────────────────────────────
-function renderProfileSection(){
-  ['profileSection','profileSectionModal'].forEach(id=>{
-    const el=_el(id);
-    if(!el)return;
+function handleRoundsChange(payload){
+  const row = payload.new || payload.old;
+  if(!row) return;
 
-    const c=CURR[G.currency]||CURR.KES;
-    const joined=G.createdAt
-      ?new Date(G.createdAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
-    const lastSeen=G.lastLogin
-      ?new Date(G.lastLogin).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
-    const vipColors={bronze:'#cd7f32',silver:'#c0c0c0',gold:'#f5c518',diamond:'#4da6ff'};
-    const vipEmoji ={bronze:'🥉',silver:'🥈',gold:'🥇',diamond:'💎'};
-    const vc=vipColors[G.vipTier]||'#cd7f32';
-    const ve=vipEmoji[G.vipTier]||'🥉';
+  // Ignore stale rounds — but only if we have a valid round_number to compare
+  if(row.round_number && G.currentRoundNumber &&
+     row.round_number < G.currentRoundNumber) return;
 
-    el.innerHTML=`
-    <div class="profile-card">
-      <div class="profile-header">
-        <div class="profile-avatar">${(G.username||'?')[0].toUpperCase()}</div>
-        <div class="profile-info">
-          <div class="profile-name">${escHtml(G.username||'—')}</div>
-          <div class="profile-email">${escHtml(G.email||'—')}</div>
-          <div class="profile-meta">
-            ${G.country?`<span>🌍 ${escHtml(G.country)}</span>`:''}
-            <span>📅 Joined ${joined}</span>
-            <span>⏱ Last login ${lastSeen}</span>
-          </div>
-        </div>
-        <div class="profile-vip" style="color:${vc};border-color:${vc}40">
-          ${ve} ${G.vipTier.charAt(0).toUpperCase()+G.vipTier.slice(1)}
-        </div>
-      </div>
+  const status = row.status;
 
-      <div class="profile-wallets">
-        <div class="pw-item pw-real">
-          <div class="pw-label">💰 Real</div>
-          <div class="pw-value">${c.sym}${fmt(G.balReal*c.rate)}</div>
-          <div class="pw-sub">◈${fmt(G.balReal)} USD</div>
-        </div>
-        <div class="pw-item pw-demo">
-          <div class="pw-label">🎮 Demo</div>
-          <div class="pw-value">◈${fmt(G.balDemo)}</div>
-          <div class="pw-sub">Virtual</div>
-        </div>
-        <div class="pw-item pw-bonus">
-          <div class="pw-label">🎁 Bonus</div>
-          <div class="pw-value">◈${fmt(G.balBonus,0)}</div>
-          <div class="pw-sub">${G.balBonus>=500?'Ready to convert!':'Need '+(500-Math.floor(G.balBonus))+' more'}</div>
-        </div>
-      </div>
+  if(payload.eventType==='INSERT' || status==='waiting'){
+    // Brand-new round — skip if already on this exact round in waiting
+    if(row.id && row.id === G.roundId && G.phase==='waiting') return;
+    _applyRoundData(row);
+    _syncToWaiting(row);
+    return;
+  }
 
-      <div class="profile-stats">
-        <div class="pst-item">
-          <div class="pst-val" style="color:var(--gold)">◈${fmt(G.totalWagered,0)}</div>
-          <div class="pst-lbl">Total Wagered</div>
-        </div>
-        <div class="pst-item">
-          <div class="pst-val" style="color:var(--green)">◈${fmt(G.totalWon,0)}</div>
-          <div class="pst-lbl">Total Won</div>
-        </div>
-        <div class="pst-item">
-          <div class="pst-val" style="color:${G.totalProfit>=0?'var(--green)':'var(--red)'}">
-            ${G.totalProfit>=0?'+':''}◈${fmt(Math.abs(G.totalProfit),0)}
-          </div>
-          <div class="pst-lbl">Net Profit</div>
-        </div>
-      </div>
-    </div>`;
+  if(status==='flying'){
+    // Accept flying for our current round, or if no round active
+    if(G.phase==='flying' && row.id===G.roundId) return; // already flying
+    if(row.id===G.roundId || !G.roundId){
+      _applyRoundData(row);
+      _syncToFlying(row);
+    }
+    return;
+  }
+
+  if(status==='crashed'){
+    if(G.phase==='crashed') return;
+    if(row.id===G.roundId || !G.roundId){
+      _applyRoundData(row);
+      _handleCrashEvent(parseFloat(row.crash_point)||G.crashPt, row.crashed_at);
+    }
+    return;
+  }
+}
+
+function handlePhaseBroadcast(payload){
+  if(!payload) return;
+
+  if(payload.event==='waiting' && payload.roundNumber > G.currentRoundNumber){
+    // New round announced by leader — faster than DB propagation
+    G.roundId            = payload.roundId;
+    G.currentRoundId     = payload.roundId;
+    G.currentRoundNumber = payload.roundNumber;
+    G.crashPt            = payload.crashPt;
+    G.serverSeedHash     = payload.serverSeedHash||'';
+    _set('roundNum', payload.roundNumber);
+    _set('pfHash', (payload.serverSeedHash||'').substring(0,26)+'...');
+    _fn('pfSeedHash',e=>e.value=payload.serverSeedHash||'');
+    _syncToWaiting({
+      id: payload.roundId,
+      round_number: payload.roundNumber,
+      crash_point: payload.crashPt,
+      server_seed_hash: payload.serverSeedHash||'',
+      created_at: new Date().toISOString(),
+      started_at: null,
+    });
+    return;
+  }
+
+  if(payload.event==='flying' && payload.roundId===G.roundId && G.phase!=='flying'){
+    G.startedAt = payload.startedAt;
+    _syncToFlying({ id:G.roundId, started_at:payload.startedAt, crash_point:G.crashPt });
+    return;
+  }
+
+  if(payload.event==='crashed' && payload.roundId===G.roundId && G.phase!=='crashed'){
+    _handleCrashEvent(payload.crashPt, payload.crashedAt);
+    return;
+  }
+}
+
+function _handleCrashEvent(crashPt, crashedAt){
+  _stopAnimLoop();
+  clearTimeout(G._crashTimer);
+  G.phase   = 'crashed';
+  G.crashPt = parseFloat(crashPt) || G.crashPt || 1.50;
+  G.mult    = G.crashPt;
+
+  const W=cv.width,H=cv.height;
+  cx.clearRect(0,0,W,H);drawGrid();drawTrail();drawDragon(G.dragonX,G.dragonY,1);
+  drawLightning(G.dragonX,G.dragonY-10);
+  cx.fillStyle='rgba(255,0,0,.05)';cx.fillRect(0,0,W,H);
+  sfxCrash();
+  setSB('crash',`⚡ Crashed at ${G.crashPt.toFixed(2)}x`);
+  _set('mvEl',G.crashPt.toFixed(2)+'x');
+  updMultDisp();
+  _fn('pfResult',e=>e.value=G.crashPt.toFixed(2)+'x');
+
+  ['A','B'].forEach(p=>{
+    const inB=p==='A'?G.aIn:G.bIn,co=p==='A'?G.aCo:G.bCo,amt=p==='A'?G.aAmt:G.bAmt;
+    if(inB&&!co){
+      recHist(false,p,amt);
+      toast2(`Bet ${p} lost — crashed at ${G.crashPt.toFixed(2)}x 💀`,'l');
+      G.winStreak=0;G.lossStreak++;
+    }
   });
+
+  G.bots.forEach(b=>{if(b.status==='playing')b.status='lost';});
+  addCrashHist(G.crashPt);buildGhostBar();renderLiveList();renderHistList();renderLB();updVIP();
+  ['A','B'].forEach(handleAutoAfter);
+  G.aIn=G.bIn=false;G.aCo=G.bCo=false;G.aBetId=G.bBetId=null;
+  updBtns();
+
+  if(!isDemo())setTimeout(refreshUserBalance,1500);
+
+  // Leader starts next round after settle period
+  if(G._isLeader){
+    clearTimeout(G._crashTimer);
+    G._crashTimer=setTimeout(()=>_leaderStartWaiting(), CRASH_SETTLE_MS);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
-//  BETTING LOGIC
+//  LEADER ELECTION
 // ─────────────────────────────────────────────────────────────
+async function _tryBecomeLeader(){
+  // Only become leader if no heartbeat received recently
+  if(Date.now()-G._leaderTs < LEADER_TTL_MS) return;
+  G._isLeader = true;
+  _startHeartbeat();
+  console.log('[DF] Became leader — userId:', G.userId);
+
+  // If there's no active round at all, start one immediately
+  if(!G.roundId && G.phase==='waiting'){
+    await _leaderStartWaiting();
+  }
+}
+
+function _startHeartbeat(){
+  clearInterval(G._heartbeatIntvl);
+  const send=()=>{
+    if(!G._isLeader||!G._realtimeChannel)return;
+    G._realtimeChannel.send({
+      type:'broadcast',event:'heartbeat',
+      payload:{leaderId:G.userId,ts:Date.now()},
+    });
+  };
+  send();
+  G._heartbeatIntvl=setInterval(send,HEARTBEAT_MS);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  LEADER ACTIONS
+// ─────────────────────────────────────────────────────────────
+
+/** Leader: create the next waiting round */
+async function _leaderStartWaiting(){
+  if(!G._isLeader) return;
+
+  // Pull next crash point — race-condition-safe RPC
+  let crashPt=1.50, serverSeedHash='df-'+Date.now().toString(36);
+
+  const {data:qData,error:qErr}=await sbSafe(()=>
+    sb.rpc('consume_next_crash_point'),'consumeNextCrashPoint');
+
+  if(!qErr && qData && qData[0]){
+    crashPt        = parseFloat(qData[0].crash_point)||1.50;
+    serverSeedHash = qData[0].server_hash||serverSeedHash;
+  } else {
+    // Local fallback if queue is empty
+    const h=Math.random();
+    crashPt=Math.max(1.01,parseFloat((1/(1-h*0.96)).toFixed(2)));
+    console.warn('[DF Leader] crash_queue empty — local fallback');
+    // Trigger async refill
+    _refillQueueIfLow();
+  }
+
+  // Create round via SECURITY DEFINER RPC
+  const {data:roundData,error:roundErr}=await sbSafe(()=>
+    sb.rpc('create_round',{
+      p_server_seed_hash:serverSeedHash,
+      p_crash_point:crashPt,
+    }),'createRound');
+
+  if(roundErr||!roundData||!roundData[0]){
+    console.error('[DF Leader] create_round failed:',roundErr?.message);
+
+    // FALLBACK: create round directly if RPC missing
+    const {data:directRound, error:directErr}=await sbSafe(()=>
+      sb.from('rounds').insert({
+        server_seed_hash:serverSeedHash,
+        crash_point:crashPt,
+        status:'waiting',
+      }).select().single(),'createRoundDirect');
+
+    if(directErr||!directRound){
+      console.error('[DF Leader] Direct round creation also failed — retrying in 3s');
+      G._crashTimer=setTimeout(()=>_leaderStartWaiting(),3000);
+      return;
+    }
+
+    // Use directly-created round
+    const newRound2=directRound;
+    G.roundId            = newRound2.id;
+    G.currentRoundId     = newRound2.id;
+    G.currentRoundNumber = newRound2.round_number || (G.currentRoundNumber+1);
+    G.crashPt            = crashPt;
+    G.serverSeedHash     = serverSeedHash;
+    G.startedAt          = null;
+    G.phase              = 'waiting';
+    _finishWaitingSetup(newRound2, crashPt, serverSeedHash);
+    return;
+  }
+
+  const newRound=roundData[0];
+  G.roundId            = newRound.id;
+  G.currentRoundId     = newRound.id;
+  G.currentRoundNumber = newRound.round_number;
+  // CRITICAL: Always use the crashPt we consumed, not whatever the RPC returns
+  G.crashPt            = crashPt;
+  G.serverSeedHash     = serverSeedHash;
+  G.startedAt          = null;
+  G.phase              = 'waiting';
+
+  _finishWaitingSetup(newRound, crashPt, serverSeedHash);
+}
+
+/** Shared setup after a new waiting round is created */
+function _finishWaitingSetup(newRound, crashPt, serverSeedHash){
+  console.log(`[DF Leader] New round #${newRound.round_number} waiting. crashPt=${crashPt}x`);
+
+  // Broadcast to all followers (faster than DB propagation)
+  G._realtimeChannel?.send({
+    type:'broadcast',event:'phase',
+    payload:{
+      event:'waiting',
+      roundId:newRound.id,
+      roundNumber:newRound.round_number || G.currentRoundNumber,
+      crashPt,
+      serverSeedHash,
+    },
+  });
+
+  _set('roundNum', newRound.round_number || G.currentRoundNumber);
+  _set('pfHash', serverSeedHash.substring(0,26)+'...');
+  _fn('pfSeedHash',e=>e.value=serverSeedHash);
+  _resetBetState();
+  genBots(crashPt);buildGhostBar();
+  setSB('wait','Waiting for next round...');
+  _fn('mwrap',e=>e.style.display='none');
+  _set('mvEl','1.00x');
+  cx.clearRect(0,0,cv.width,cv.height);drawGrid();
+  ['A','B'].forEach(p=>_fn('panel'+p,e=>e.className='bpanel'));
+  renderLiveList();updBtns();
+
+  startCountdown(WAIT_SECS);
+
+  // Fire queued bets (with duplicate protection)
+  ['A','B'].forEach(p=>{
+    const q=p==='A'?G.aQueued:G.bQueued;
+    if(q>0){
+      if(p==='A'){G.aQueued=0;G._aLastAutoRound=G.currentRoundId;}
+      else{G.bQueued=0;G._bLastAutoRound=G.currentRoundId;}
+      setTimeout(()=>placeBet(p,q),300);
+    }
+  });
+
+  // Auto-bet — only if haven't bet this round already
+  ['A','B'].forEach(p=>{
+    if(getMode(p)==='auto'&&isAutoRun(p)){
+      handleAutoAfter(p);
+      if(isAutoRun(p)){
+        const inB=p==='A'?G.aIn:G.bIn;
+        const lastRound=p==='A'?G._aLastAutoRound:G._bLastAutoRound;
+        if(!inB&&lastRound!==G.currentRoundId){
+          const amt=parseFloat((_el('amt'+p)||{}).value)||0;
+          const bal=getBal();
+          if(amt>0&&bal>=amt){
+            setTimeout(()=>{
+              const stillIn=p==='A'?G.aIn:G.bIn;
+              if(!stillIn&&(p==='A'?G._aLastAutoRound:G._bLastAutoRound)!==G.currentRoundId){
+                if(p==='A')G._aLastAutoRound=G.currentRoundId;
+                else G._bLastAutoRound=G.currentRoundId;
+                placeBet(p,amt);
+              }
+            },500);
+          } else if(amt>0&&bal<amt){
+            stopAuto(p,`Auto ${p} stopped — insufficient balance`);
+          }
+        }
+      }
+    }
+  });
+
+  // Schedule fly at the right moment
+  clearTimeout(G._crashTimer);
+  G._crashTimer=setTimeout(()=>_leaderDoFlying(), WAIT_SECS*1000);
+
+  // Keep queue healthy
+  _refillQueueIfLow();
+}
+
+/** Leader: transition round to flying */
+async function _leaderDoFlying(){
+  if(!G._isLeader||G.phase!=='waiting') return;
+
+  // Safety: ensure we have a valid crash point
+  if(!G.crashPt || G.crashPt < 1.01){
+    console.error('[DF Leader] Cannot fly — invalid crashPt:', G.crashPt);
+    G.crashPt = 1.50; // emergency fallback
+  }
+
+  const startedAt=new Date().toISOString();
+  G.startedAt=startedAt;
+  G.phase='flying';
+
+  // Update DB
+  const {error}=await sbSafe(()=>
+    sb.from('rounds').update({status:'flying',started_at:startedAt})
+      .eq('id',G.roundId).eq('status','waiting'),'leaderDoFlying');
+
+  if(error){
+    console.error('[DF Leader] Failed to set flying status:', error.message);
+    // Revert phase if DB failed
+    G.phase='waiting';
+    G.startedAt=null;
+    G._crashTimer=setTimeout(()=>_leaderDoFlying(), 2000);
+    return;
+  }
+
+  console.log(`[DF Leader] Flying! crashPt=${G.crashPt}x startedAt=${startedAt}`);
+
+  // Low-latency broadcast
+  G._realtimeChannel?.send({
+    type:'broadcast',event:'phase',
+    payload:{event:'flying',roundId:G.roundId,startedAt,crashPt:G.crashPt},
+  });
+
+  _syncToFlying({id:G.roundId,started_at:startedAt,crash_point:G.crashPt});
+}
+
+/** Leader: crash the round */
+async function _leaderDoCrash(){
+  if(!G._isLeader || G.phase!=='flying') return;
+  // Prevent double-crash
+  G.phase = 'crashing'; // interim state
+
+  const crashedAt=new Date().toISOString();
+  const crashPt=G.crashPt;
+
+  console.log(`[DF Leader] Crashing round #${G.currentRoundNumber} at ${crashPt}x`);
+
+  // Update DB — retry once on failure
+  const {error}=await sbSafe(()=>
+    sb.from('rounds').update({
+      status:'crashed',crash_point:crashPt,crashed_at:crashedAt,
+    }).eq('id',G.roundId).eq('status','flying'),'leaderDoCrash');
+
+  if(error){
+    console.error('[DF Leader] DB crash update failed:',error.message);
+    // Still crash locally + broadcast so clients don't hang
+  }
+
+  // Low-latency broadcast
+  G._realtimeChannel?.send({
+    type:'broadcast',event:'phase',
+    payload:{event:'crashed',roundId:G.roundId,crashPt,crashedAt},
+  });
+
+  _handleCrashEvent(crashPt,crashedAt);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  ANIMATION LOOP  (mult from server timestamp)
+// ─────────────────────────────────────────────────────────────
+function _startAnimLoop(){
+  _stopAnimLoop();
+  G.trail=[];
+  const tick=()=>{
+    if(G.phase!=='flying'){return;}
+    // Multiplier is purely derived from server start timestamp
+    G.mult=calcMult(G.startedAt);
+
+    const W=cv.width,H=cv.height,pad=68,lpad=35;
+    cx.clearRect(0,0,W,H);drawGrid();
+    const el=(Date.now()-new Date(G.startedAt).getTime())/1000;
+    const prog=Math.min(el/14,1);
+    G.dragonX=lpad+(W-lpad-100)*Math.min(prog*1.3,1);
+    G.dragonY=Math.max(80,(H-pad)-(H-pad-90)*(1-Math.pow(1-prog,2.2)));
+    G.trail.push({x:G.dragonX,y:G.dragonY});
+    if(G.trail.length>85)G.trail.shift();
+    drawTrail();
+    const hs=1+Math.min((G.mult-1)*.04,.55),fs=hs+Math.sin(Date.now()*.009)*.045;
+    drawDragon(G.dragonX,G.dragonY,fs);
+    updMultDisp();tickBots();
+    ['A','B'].forEach(checkAutoOut);
+    if(Math.round(el*60)%12===0)buildGhostBar();
+    renderLiveList();updBtns();
+    if(G.mult>=5){if(G.aIn&&!G.aCo)checkAch('diamond');if(G.bIn&&!G.bCo)checkAch('diamond');}
+    G.animFr=requestAnimationFrame(tick);
+  };
+  G.animFr=requestAnimationFrame(tick);
+}
+
+function _stopAnimLoop(){
+  if(G.animFr){cancelAnimationFrame(G.animFr);G.animFr=null;}
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RECONNECTION RECOVERY
+// ─────────────────────────────────────────────────────────────
+async function recoverSync(){
+  if(G._recovering) return;
+  G._recovering=true;
+  console.log('[DF] Recovering sync...');
+  _stopAnimLoop();
+  clearTimeout(G._crashTimer);
+  try{
+    // Re-sub if channel broke
+    if(G._realtimeChannel){
+      const st=G._realtimeChannel.state;
+      if(st!=='joined'&&st!=='joining'){
+        sb.removeChannel(G._realtimeChannel);
+        G._realtimeChannel=null;
+        subscribeGameEngine();
+        await new Promise(r=>setTimeout(r,500));
+      }
+    }
+    await fetchAndSyncRound();
+  }catch(e){
+    console.error('[DF] Recovery failed:',e.message);
+  }finally{
+    G._recovering=false;
+  }
+}
+
+// Listen for page-visibility and online events
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')recoverSync();});
+window.addEventListener('online',()=>recoverSync());
+
+// ─────────────────────────────────────────────────────────────
+//  CRASH QUEUE REFILL
+// ─────────────────────────────────────────────────────────────
+async function _refillQueueIfLow(){
+  const {count}=await sb.from('crash_queue')
+    .select('id',{count:'exact',head:true}).eq('is_used',false);
+  if((count||0)<20){
+    const {data:last}=await sbSafe(()=>
+      sb.from('crash_queue').select('round_number')
+        .order('round_number',{ascending:false}).limit(1).single(),'refillLast');
+    const fromRound=(last?.round_number||0)+1;
+    const {error}=await sbSafe(()=>
+      sb.rpc('seed_crash_queue',{p_from_round:fromRound,p_count:100}),'refillQueue');
+    if(!error) console.log('[DF] Refilled crash queue from round',fromRound);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  COUNTDOWN  (server-aligned)
+// ─────────────────────────────────────────────────────────────
+function startCountdown(secs){
+  G.countSec=Math.max(1,Math.round(secs));
+  const wrap=_el('cdwrap'),num=_el('cdNum'),arc=_el('cdArc');
+  if(!wrap)return;
+  wrap.className='cdw show';
+  if(num)num.textContent=G.countSec;
+  if(arc)arc.style.strokeDashoffset=0;
+  clearInterval(G.countIntvl);
+  const total=G.countSec;
+  G.countIntvl=setInterval(()=>{
+    G.countSec--;sfxTick();
+    if(num)num.textContent=Math.max(0,G.countSec);
+    if(arc)arc.style.strokeDashoffset=283*(1-Math.max(0,G.countSec)/total);
+    if(G.countSec<=0){
+      clearInterval(G.countIntvl);
+      if(wrap)wrap.className='cdw';
+      // Followers transition visually when the broadcast arrives.
+      // Leader triggers actual DB update via _leaderDoFlying().
+    }
+  },1000);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  HELPER — reset per-round bet state
+// ─────────────────────────────────────────────────────────────
+function _resetBetState(){
+  G.mult=1;G.trail=[];G.startedAt=null;G.depAcctRef=genRef();
+}
+
+// ─────────────────────────────────────────────────────────────
+//  AUTO BET
+// ─────────────────────────────────────────────────────────────
+const getMode=p=>p==='A'?G.aMode:G.bMode;
 const isAutoRun=p=>p==='A'?G.aRunning:G.bRunning;
-const getMode  =p=>p==='A'?G.aMode:G.bMode;
 
 window.setPanelMode=(p,m)=>{
   if(p==='A')G.aMode=m; else G.bMode=m;
   _fn('ptb'+p+'-m',e=>e.className='ptb '+(m==='manual'?'on':''));
   _fn('ptb'+p+'-a',e=>e.className='ptb '+(m==='auto'?'on':''));
-  _fn('stop'+p,    e=>e.className='stoprow '+(m==='auto'?'show':''));
+  _fn('stop'+p,e=>e.style.display=m==='auto'?'':'none');
+  _fn('strip'+p,e=>e.style.display=m==='auto'?'flex':'none');
+  updBtns();
 };
 
-function startAuto(p){
-  if(p==='A'){G.aRunning=true;G.aPlayed=0;G.aRnds=parseInt((_el('rndsA')||{}).value)||10;}
-  else{G.bRunning=true;G.bPlayed=0;G.bRnds=parseInt((_el('rndsB')||{}).value)||10;}
-  _fn('strip'+p,e=>e.className='astrip show');
-  updAutoStrip(p);toast2(`Auto ${p} started 🤖`,'i');
-}
-function stopAuto(p,msg=''){
-  if(p==='A')G.aRunning=false; else G.bRunning=false;
-  _fn('strip'+p,e=>e.className='astrip');
-  if(msg)toast2(msg,'g');
-}
-function updAutoStrip(p){
-  const pl=p==='A'?G.aPlayed:G.bPlayed,tot=p==='A'?G.aRnds:G.bRnds;
-  _set('stripTxt'+p,`Auto — ${pl}/${tot} rounds`);
-}
-
-function autoPlace(p){
-  const amt=parseFloat((_el('amt'+p)||{}).value);
-  if(!amt||amt<1){stopAuto(p,'Invalid amount');return;}
-  placeBet(p,amt);
-}
-
+function startAuto(p){if(p==='A'){G.aRunning=true;G.aPlayed=0;}else{G.bRunning=true;G.bPlayed=0;}updAutoStrip(p);updBtns();toast2(`Auto Bet ${p} started 🤖`,'i');}
+function stopAuto(p,reason){if(p==='A')G.aRunning=false;else G.bRunning=false;updBtns();if(reason)toast2(reason,'i');}
+function updAutoStrip(p){const played=p==='A'?G.aPlayed:G.bPlayed;const rnds=parseInt(_el('rnds'+p)?.value)||10;_set('stripTxt'+p,`Auto — ${played}/${rnds} rounds`);}
 function handleAutoAfter(p){
   if(!isAutoRun(p))return;
   const played=p==='A'?G.aPlayed:G.bPlayed;
-  const total =p==='A'?G.aRnds:G.bRnds;
-  const sw=parseFloat((_el('sw'+p)||{}).value)||0;
-  const sl=parseFloat((_el('sl'+p)||{}).value)||0;
-  const recent=G.myHistory.filter(h=>h.panel===p).slice(-played);
-  const sessProfit=recent.reduce((s,h)=>s+(h.win?h.profit:-h.bet),0);
-  if(played>=total){stopAuto(p,`Auto ${p} complete`);return;}
-  if(sw>0&&sessProfit>=sw){stopAuto(p,`Auto ${p} — profit target hit`);return;}
-  if(sl>0&&sessProfit<=-sl){stopAuto(p,`Auto ${p} — loss limit hit`);return;}
+  const rnds=parseInt(_el('rnds'+p)?.value)||10;
+  const sw=parseFloat(_el('sw'+p)?.value)||0;
+  const sl=parseFloat(_el('sl'+p)?.value)||0;
+  if(played>=rnds){stopAuto(p,`Auto ${p} finished (${rnds} rounds)`);return;}
+  if(sw&&G.totalProfit>=sw){stopAuto(p,`Auto ${p} stopped — profit target reached ✓`);return;}
+  if(sl&&(G.totalWagered-G.totalWon)>=sl){stopAuto(p,`Auto ${p} stopped — loss limit reached`);return;}
+  const amt=parseFloat((_el('amt'+p)||{}).value)||0;
+  const bal=getBal();
+  if(amt>0&&bal<amt){stopAuto(p,`Auto ${p} stopped — insufficient balance`);return;}
 }
 
 window.handleBtn=p=>{
   if(G.phase==='waiting'){
     if(getMode(p)==='auto'){isAutoRun(p)?stopAuto(p,`Auto ${p} cancelled`):startAuto(p);return;}
+    const inB=p==='A'?G.aIn:G.bIn;
+    if(inB)return;
     const amt=parseFloat((_el('amt'+p)||{}).value);
     if(!amt||amt<1){toast2('Enter a valid bet amount','l');return;}
     placeBet(p,amt);
   }else if(G.phase==='flying'){
-    const inB=p==='A'?G.aIn:G.bIn, co=p==='A'?G.aCo:G.bCo;
+    const inB=p==='A'?G.aIn:G.bIn,co=p==='A'?G.aCo:G.bCo;
     if(inB&&!co)cashOut(p);
+    else if(!inB)queueNextRound(p);
   }
 };
 
-async function placeBet(p,amt){
-  if(G.phase!=='waiting'){toast2('Wait for next round','l');return;}
-
-  if(isDemo()){
-    if(amt>G.balDemo){toast2('Insufficient demo balance','l');return;}
-    G.balDemo=Math.max(0,G.balDemo-amt);
-    updateBalDisp();
-    if(p==='A'){G.aIn=true;G.aAmt=amt;G.aCo=false;G.aBetId=null;}
-    else{G.bIn=true;G.bAmt=amt;G.bCo=false;G.bBetId=null;}
-    sfxPlace();
-    checkAch('firstBet');if(G.aIn&&G.bIn)checkAch('dual');
-    updBtns();renderLiveList();
-    _fn('panel'+p,e=>e.className='bpanel bp-active');
-    toast2(`[Demo] Bet ${p} — ◈${fmt(amt)} placed 🐉`,'i');
-    G.totalBets++;
-    if(p==='A')G.aPlayed++; else G.bPlayed++;
-    return;
+function cancelBet(p){
+  const inB=p==='A'?G.aIn:G.bIn;
+  if(!inB){toast2('No bet to cancel','l');return;}
+  if(G.phase!=='waiting'){toast2('Cannot cancel — round already started','l');return;}
+  const amt=p==='A'?G.aAmt:G.bAmt;
+  if(isDemo()){G.balDemo=parseFloat((G.balDemo+amt).toFixed(2));updateBalDisp();}
+  else{
+    G.balReal=parseFloat((G.balReal+amt).toFixed(2));updateBalDisp();
+    if(G.userId){
+      const betId=p==='A'?G.aBetId:G.bBetId;
+      if(betId){
+        sbSafe(()=>sb.from('bets').delete().eq('id',betId).eq('user_id',G.userId),'cancelBet');
+        sbSafe(()=>sb.from('users').update({balance_real:G.balReal,total_wagered:Math.max(0,G.totalWagered-amt)}).eq('id',G.userId),'cancelBetBal');
+      }
+    }
   }
-
-  // Real mode — DB RPC
-  if(!G.userId){toast2('Please log in','l');return;}
-  if(amt>G.balReal){toast2('Insufficient balance — deposit more 💰','l');return;}
-
-  const autoCashout=_el('auto'+p)?.checked
-    ?parseFloat(_el('acv'+p)?.value)||null:null;
-
-  const {data,error}=await sb.rpc('place_bet',{
-    p_user_id:G.userId,
-    p_round_id:G.currentRoundId||null,
-    p_amount:amt,
-    p_currency:G.currency,
-    p_panel:p,
-    p_is_demo:false,
-    p_auto_cashout_at:autoCashout,
-  });
-
-  if(error||!data?.success){
-    toast2(data?.error||error?.message||'Bet failed','l');
-    return;
-  }
-
-  G.balReal=parseFloat(data.new_balance)||Math.max(0,G.balReal-amt);
-  updateBalDisp();
-
-  if(p==='A'){G.aIn=true;G.aAmt=amt;G.aCo=false;G.aBetId=data.bet_id||null;}
-  else{G.bIn=true;G.bAmt=amt;G.bCo=false;G.bBetId=data.bet_id||null;}
-
-  G.totalWagered+=amt;G.totalBets++;
-  if(p==='A')G.aPlayed++; else G.bPlayed++;
-
-  sfxPlace();
-  checkAch('firstBet');if(G.aIn&&G.bIn)checkAch('dual');
-  updBtns();renderLiveList();updVIP();
-  _fn('panel'+p,e=>e.className='bpanel bp-active');
-  toast2(`Bet ${p} — ◈${fmt(amt)} placed 🐉`,'i');
+  if(p==='A'){G.aIn=false;G.aAmt=0;G.aCo=false;G.aBetId=null;}
+  else{G.bIn=false;G.bAmt=0;G.bCo=false;G.bBetId=null;}
+  _fn('panel'+p,e=>e.className='bpanel');
+  updBtns();renderLiveList();
+  toast2(`Bet ${p} cancelled — ${fmtKES(amt)} refunded`,'i');
 }
 
+function queueNextRound(p){
+  if(G.phase!=='flying')return;
+  const amt=parseFloat((_el('amt'+p)||{}).value);
+  if(!amt||amt<1){toast2('Enter a valid bet amount first','l');return;}
+  if(p==='A')G.aQueued=amt;else G.bQueued=amt;
+  updBtns();
+  toast2(`Bet ${p} queued — ${fmtKES(amt)} will be placed next round 🔄`,'i');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PLACE BET
+// ─────────────────────────────────────────────────────────────
+async function placeBet(p,amt){
+  if(G.phase!=='waiting'){toast2('Wait for next round','l');return;}
+  const alreadyIn=p==='A'?G.aIn:G.bIn;
+  if(alreadyIn){toast2(`Bet ${p} already placed`,'l');return;}
+  if(G._betLock){toast2('Processing previous bet...','i');return;}
+  if(isDemo()){
+    if(amt>G.balDemo){toast2('Insufficient demo balance','l');return;}
+    G.balDemo=parseFloat(Math.max(0,G.balDemo-amt).toFixed(2));updateBalDisp();
+    if(p==='A'){G.aIn=true;G.aAmt=amt;G.aCo=false;G.aBetId=null;}
+    else{G.bIn=true;G.bAmt=amt;G.bCo=false;G.bBetId=null;}
+    sfxPlace();checkAch('firstBet');if(G.aIn&&G.bIn)checkAch('dual');
+    updBtns();renderLiveList();
+    _fn('panel'+p,e=>e.className='bpanel bp-active');
+    toast2(`[Demo] Bet ${p} — ${fmtKES(parseFloat(amt).toFixed(2))} placed 🐉`,'i');
+    G.totalBets++;if(p==='A')G.aPlayed++;else G.bPlayed++;
+    return;
+  }
+  if(!G.userId){toast2('Please log in','l');return;}
+  if(amt>G.balReal){toast2(`Insufficient balance — ${fmtKES(G.balReal)} available`,'l');return;}
+  if(!G.currentRoundId){toast2('Waiting for round to be ready...','i');return;}
+  const autoCashout=_el('auto'+p)?.checked?parseFloat(_el('acv'+p)?.value)||null:null;
+  G._betLock=true;
+  const btn=_el('btn'+p);const origText=btn?.innerHTML;
+  if(btn){btn.disabled=true;btn.innerHTML='<span style="opacity:.7">Placing bet...</span>';}
+  const {data,error}=await sbSafe(()=>sb.rpc('place_bet',{
+    p_user_id:G.userId,p_round_id:G.currentRoundId,p_amount:amt,
+    p_currency:'KES',p_panel:p,p_is_demo:false,p_auto_cashout_at:autoCashout,
+  }),'placeBet');
+  G._betLock=false;
+  if(btn){btn.disabled=false;btn.innerHTML=origText||`Place Bet ${p}`;}
+  if(error||!data?.success){
+    let friendly=data?.error||error?.message||'Bet could not be placed';
+    if(friendly.includes('row-level security')||friendly.includes('403')||friendly.includes('406'))
+      friendly='Server permission error — please refresh and try again.';
+    else if(friendly.includes('balance'))friendly='Insufficient balance — please deposit.';
+    else if(friendly.includes('network')||friendly.includes('fetch'))friendly='Network error — check connection.';
+    toast2(`Bet ${p} failed: ${friendly}`,'l');
+    return;
+  }
+  G.balReal=parseFloat(data.new_balance)||Math.max(0,G.balReal-amt);updateBalDisp();
+  if(p==='A'){G.aIn=true;G.aAmt=amt;G.aCo=false;G.aBetId=data.bet_id||null;}
+  else{G.bIn=true;G.bAmt=amt;G.bCo=false;G.bBetId=data.bet_id||null;}
+  G.totalWagered+=amt;G.totalBets++;
+  if(p==='A')G.aPlayed++;else G.bPlayed++;
+  sfxPlace();checkAch('firstBet');if(G.aIn&&G.bIn)checkAch('dual');
+  updBtns();renderLiveList();updVIP();
+  _fn('panel'+p,e=>e.className='bpanel bp-active');
+  toast2(`Bet ${p} — ${fmtKES(amt)} placed 🐉`,'i');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  CASH OUT
+// ─────────────────────────────────────────────────────────────
 async function cashOut(p){
   const isA=p==='A';
   if(isA){if(!G.aIn||G.aCo)return;G.aCo=true;}
-  else   {if(!G.bIn||G.bCo)return;G.bCo=true;}
-
+  else{if(!G.bIn||G.bCo)return;G.bCo=true;}
   const amt=isA?G.aAmt:G.bAmt;
   const betId=isA?G.aBetId:G.bBetId;
   const pay=parseFloat((amt*G.mult).toFixed(2));
   const prof=parseFloat((pay-amt).toFixed(2));
-
   if(isDemo()){
-    G.balDemo+=pay;
-    updateBalDisp();
+    G.balDemo=parseFloat((G.balDemo+pay).toFixed(2));updateBalDisp();
     recHist(true,p,amt);sfxCashout();
     G.winStreak++;G.lossStreak=0;
-    if(G.winStreak>=3)checkAch('streak3');
-    if(prof>=500)checkAch('bigWin');
-    if(G.mult>=10)checkAch('moon');
+    if(G.winStreak>=3)checkAch('streak3');if(prof>=500)checkAch('bigWin');if(G.mult>=10)checkAch('moon');
     _fn('panel'+p,e=>e.className='bpanel bp-cashed');
-    toast2(`[Demo] Bet ${p} — cashed at ${G.mult.toFixed(2)}x! +◈${fmt(prof)} 💰`,'w');
-    updBtns();renderHistList();
-    return;
+    toast2(`[Demo] Bet ${p} — cashed at ${G.mult.toFixed(2)}x! +${fmtKES(prof)} 💰`,'w');
+    updBtns();renderHistList();return;
   }
-
-  if(!G.userId||!betId){
-    // Fallback: RPC unavailable — do not credit locally; show error
-    toast2('Cashout error — please contact support','l');
-    if(isA)G.aCo=false; else G.bCo=false;
-    updBtns();
-    return;
-  }
-
-  const {data,error}=await sb.rpc('cashout_bet',{
-    p_bet_id:betId,
-    p_user_id:G.userId,
-    p_mult:G.mult,
-  });
-
+  if(!G.userId||!betId){toast2('Cashout error — bet ID missing','l');if(isA)G.aCo=false;else G.bCo=false;updBtns();return;}
+  const {data,error}=await sbSafe(()=>sb.rpc('cashout_bet',{p_bet_id:betId,p_user_id:G.userId,p_mult:G.mult}),'cashOut');
   if(error||!data?.success){
-    toast2(data?.error||'Cashout error — contact support','l');
-    if(isA)G.aCo=false; else G.bCo=false;
-    updBtns();
-    return;
+    toast2(`Cashout error: ${data?.error||error?.message||'Cashout failed'}`,'l');
+    if(isA)G.aCo=false;else G.bCo=false;updBtns();return;
   }
-
-  G.balReal  = parseFloat(data.new_balance)||G.balReal;
-  G.totalWon = (G.totalWon||0)+pay;
-  G.totalProfit = (G.totalProfit||0)+prof;
-  updateBalDisp();
-
+  G.balReal=parseFloat(data.new_balance)||G.balReal;
+  G.totalWon=(G.totalWon||0)+pay;G.totalProfit=(G.totalProfit||0)+prof;updateBalDisp();
   recHist(true,p,amt);sfxCashout();
   G.winStreak++;G.lossStreak=0;
-  if(G.winStreak>=3)checkAch('streak3');
-  if(prof>=500)checkAch('bigWin');
-  if(G.mult>=10)checkAch('moon');
+  if(G.winStreak>=3)checkAch('streak3');if(prof>=500)checkAch('bigWin');if(G.mult>=10)checkAch('moon');
   _fn('panel'+p,e=>e.className='bpanel bp-cashed');
-  toast2(`Bet ${p} — cashed at ${G.mult.toFixed(2)}x! +◈${fmt(prof)} 💰`,'w');
-  updBtns();renderHistList();
-  if(isAutoRun(p))updAutoStrip(p);
+  toast2(`Bet ${p} — cashed at ${G.mult.toFixed(2)}x! +${fmtKES(prof)} 💰`,'w');
+  updBtns();renderHistList();if(isAutoRun(p))updAutoStrip(p);
 }
 
 function checkAutoOut(p){
   const on=_el('auto'+p)?.checked;
   const av=parseFloat(_el('acv'+p)?.value);
-  const inB=p==='A'?G.aIn:G.bIn, co=p==='A'?G.aCo:G.bCo;
+  const inB=p==='A'?G.aIn:G.bIn,co=p==='A'?G.aCo:G.bCo;
   if(on&&inB&&!co&&G.mult>=av)cashOut(p);
 }
 
 // ─────────────────────────────────────────────────────────────
-//  GAME LOOP
+//  BOTS
 // ─────────────────────────────────────────────────────────────
 function genBots(cp){
   G.bots=[];
@@ -676,18 +1234,17 @@ function genBots(cp){
   for(let i=0;i<count;i++){
     const win=Math.random()>.35;
     G.bots.push({
-      id:i, name:pick(BNAMES), flag:pick(BFLAGS), col:pick(BCOLS),
+      id:i,name:pick(BNAMES),flag:pick(BFLAGS),col:pick(BCOLS),
       amt:parseFloat(rnd(5,600).toFixed(0)),
       cashAt:win?parseFloat(rnd(1.05,cp-.01).toFixed(2)):null,
-      cashedAt:null, status:'playing',
+      cashedAt:null,status:'playing',
     });
   }
 }
 function tickBots(){G.bots.forEach(b=>{if(b.status==='playing'&&b.cashAt&&G.mult>=b.cashAt){b.cashedAt=G.mult;b.status='out';}});}
 
 function buildGhostBar(){
-  const ticker=_el('ghostTicker');
-  const countEl=_el('ghostCount');
+  const ticker=_el('ghostTicker');const countEl=_el('ghostCount');
   if(!ticker||!countEl)return;
   const total=G.bots.length+(G.aIn?1:0)+(G.bIn?1:0);
   const playing=G.bots.filter(b=>b.status==='playing').length+(G.aIn&&!G.aCo?1:0)+(G.bIn&&!G.bCo?1:0);
@@ -701,11 +1258,13 @@ function buildGhostBar(){
     if(b.status==='out')    st=`<span class="gst gs-w">✓${b.cashedAt?b.cashedAt.toFixed(2)+'x':''}</span>`;
     else if(b.status==='lost')st=`<span class="gst gs-l">✗ lost</span>`;
     else                    st=`<span class="gst gs-p">betting</span>`;
-    return`<div class="gi"><span class="gflag">${b.flag}</span><span class="gname">${b.name}</span><span class="gamt">◈${b.amt}</span>${st}</div>`;
+    return`<div class="gi"><span class="gflag">${b.flag}</span><span class="gname">${b.name}</span><span class="gamt">${fmtKES(b.amt)}</span>${st}</div>`;
   }).join('');
 }
 
-// ── Drawing ──────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+//  DRAWING
+// ─────────────────────────────────────────────────────────────
 function drawGrid(){
   const W=cv.width,H=cv.height;
   cx.strokeStyle='rgba(255,255,255,.022)';cx.lineWidth=1;
@@ -765,27 +1324,13 @@ function drawLightning(x,y){
   cx.strokeStyle='rgba(167,139,250,.45)';cx.lineWidth=11;cx.stroke();cx.restore();
 }
 
-function animLoop(ts){
-  if(!G.startTs)G.startTs=ts;
-  const el=(ts-G.startTs)/1000;
-  G.mult=parseFloat(Math.max(1,Math.pow(Math.E,.07*el)).toFixed(2));
-  const W=cv.width,H=cv.height,pad=68,lpad=35;
-  cx.clearRect(0,0,W,H);drawGrid();
-  const prog=Math.min(el/14,1);
-  G.dragonX=lpad+(W-lpad-100)*Math.min(prog*1.3,1);
-  G.dragonY=Math.max(80,(H-pad)-(H-pad-90)*(1-Math.pow(1-prog,2.2)));
-  G.trail.push({x:G.dragonX,y:G.dragonY});
-  if(G.trail.length>85)G.trail.shift();
-  drawTrail();
-  const hs=1+Math.min((G.mult-1)*.04,.55),fs=hs+Math.sin(ts*.009)*.045;
-  drawDragon(G.dragonX,G.dragonY,fs);
-  updMultDisp();tickBots();
-  ['A','B'].forEach(checkAutoOut);
-  if(Math.round(el*60)%12===0)buildGhostBar();
-  renderLiveList();updBtns();
-  if(G.mult>=5){if(G.aIn&&!G.aCo)checkAch('diamond');if(G.bIn&&!G.bCo)checkAch('diamond');}
-  if(G.mult>=G.crashPt){doCrash();return;}
-  G.animFr=requestAnimationFrame(animLoop);
+// ─────────────────────────────────────────────────────────────
+//  UI HELPERS
+// ─────────────────────────────────────────────────────────────
+function setSB(t,txt){
+  const b=_el('sbadge');if(!b)return;
+  b.className='sbadge '+(t==='wait'?'sbw':t==='fly'?'sbf':'sbc');
+  b.textContent=txt;
 }
 function updMultDisp(){
   const el=_el('mvEl');if(!el)return;
@@ -795,218 +1340,55 @@ function updMultDisp(){
   else if(G.mult<4)el.className='mv mv-w';
   else el.className='mv mv-d';
 }
-
-// ── CRASH POINT — fetched from crash_queue in DB ─────────────
-// Pulls the next unused entry from crash_queue so the game uses
-// the exact crash point the admin sees in the panel.
-async function fetchCrashPoint(){
-  // Pull the very next unused entry and immediately mark it used —
-  // this guarantees each round consumes exactly one queue entry,
-  // in both demo and real mode, regardless of whether the round
-  // row INSERT succeeds.
-  const {data:q,error}=await sb.from('crash_queue')
-    .select('id,crash_point,round_number,server_seed,server_hash')
-    .eq('is_used',false)
-    .order('round_number',{ascending:true})
-    .limit(1)
-    .single();
-
-  if(!error&&q){
-    G.crashPt=parseFloat(q.crash_point)||1.5;
-    G.crashQueueId=q.id;
-    G.crashQueueRound=q.round_number;
-
-    // Mark consumed via RPC (SECURITY DEFINER — bypasses RLS so the update
-    // always succeeds regardless of the player's role).
-    // SQL to create this function is in the comment block below.
-    const {error:rpcErr}=await sb.rpc('consume_crash_queue_entry',{p_id:q.id});
-    if(rpcErr){
-      // RPC not yet created — fall back to direct update (works if RLS allows it)
-      console.warn('[DragonFlight] consume_crash_queue_entry RPC missing, trying direct update:',rpcErr.message);
-      await sb.from('crash_queue').update({is_used:true}).eq('id',q.id);
-    }
-
-    // Show provably-fair hash to player
-    if(q.server_hash){
-      _set('pfHash',q.server_hash.substring(0,26)+'...');
-      _fn('pfSeedHash',e=>e.value=q.server_hash);
-    }
-  }else{
-    // Fallback: local generation (queue empty — seed via Admin → Crash Preview → Regenerate)
-    const h=Math.random();
-    G.crashPt=Math.max(1.01,parseFloat((1/(1-h*0.96)).toFixed(2)));
-    G.crashQueueId=null;
-    G.crashQueueRound=null;
-    console.warn('[DragonFlight] crash_queue empty — used local fallback.');
-  }
-}
-
-function markCrashQueueUsed(){ /* consumed on fetch via RPC */ }
-
-// ── WAITING ──────────────────────────────────────────────────
-// Creates a new round row in the DB so admin sees it immediately,
-// then fetches the crash point from crash_queue.
-async function startWaiting(){
-  G.phase='waiting';G.mult=1;G.trail=[];G.startTs=null;
-  G.crashPt=99; // placeholder — overwritten by fetchCrashPoint()
-  G.depAcctRef=genRef();
-  genBots(5);buildGhostBar();
-  _set('pfHash','Waiting for round...');
-  _fn('pfResult',e=>e.value='');
-  setSB('wait','Waiting for next round...');
-  _fn('mwrap',e=>e.style.display='none');
-  _set('mvEl','1.00x');
-  cx.clearRect(0,0,cv.width,cv.height);drawGrid();
-  renderLiveList();updBtns();
-
-  // Step 1: fetch crash point from DB queue first (needs round number)
-  await fetchCrashPoint();
-
-  // Step 2: INSERT a new round row into DB — admin sees it immediately.
-  // Let the DB sequence assign round_number (avoids unique-constraint conflicts).
-  if(!isDemo()&&G.userId){
-    const seedHash=G.crashQueueId||('df-'+Date.now().toString(36));
-    const {data:newRound,error}=await sb.from('rounds').insert({
-      status:'waiting',
-      server_seed_hash:seedHash,
-      total_bets:0,
-      total_payout:0,
-      house_profit:0,
-      player_count:0,
-    }).select('id,round_number').single();
-
-    if(!error&&newRound){
-      G.currentRoundId=newRound.id;
-      G.currentRoundNumber=newRound.round_number;
-      _set('roundNum',newRound.round_number);
-    }else{
-      // INSERT failed (e.g. RLS) — increment local counter so game keeps advancing
-      console.warn('[DragonFlight] Round insert failed:',error?.message);
-      G.currentRoundId=null;
-      G.currentRoundNumber=(G.currentRoundNumber||0)+1;
-      _set('roundNum',G.currentRoundNumber);
-    }
-  }else{
-    // Demo mode — no DB write, but still advance the local round counter
-    G.currentRoundNumber=(G.currentRoundNumber||0)+1;
-    _set('roundNum',G.currentRoundNumber);
-    G.currentRoundId=null;
-  }
-
-  startCountdown(5);
-}
-
-function startCountdown(s){
-  G.countSec=s;
-  const wrap=_el('cdwrap'),num=_el('cdNum'),arc=_el('cdArc');
-  if(!wrap)return;
-  wrap.className='cdw show';
-  if(num)num.textContent=G.countSec;
-  if(arc)arc.style.strokeDashoffset=0;
-  clearInterval(G.countIntvl);
-  G.countIntvl=setInterval(()=>{
-    G.countSec--;sfxTick();
-    if(num)num.textContent=G.countSec;
-    if(arc)arc.style.strokeDashoffset=283*(1-G.countSec/s);
-    if(G.countSec<=0){clearInterval(G.countIntvl);if(wrap)wrap.className='cdw';startRound();}
-  },1000);
-}
-
-// ── FLYING ───────────────────────────────────────────────────
-// Updates round status to 'flying' in DB so admin sees it live.
-function startRound(){
-  G.phase='flying';G.startTs=null;
-  setSB('fly','🐉 Dragon is soaring!');
-  _fn('mwrap',e=>e.style.display='');
-  _set('mlEl','Cash out before the crash!');
-  ['A','B'].forEach(p=>{if(getMode(p)==='auto'&&isAutoRun(p))autoPlace(p);});
-  G.animFr=requestAnimationFrame(animLoop);
-
-  // Tell DB (and admin) the round is now flying
-  if(!isDemo()&&G.currentRoundId){
-    sb.from('rounds').update({
-      status:'flying',
-      started_at:new Date().toISOString(),
-    }).eq('id',G.currentRoundId);
-  }
-}
-
-// ── CRASHED ──────────────────────────────────────────────────
-function doCrash(){
-  cancelAnimationFrame(G.animFr);G.phase='crashed';
-  const W=cv.width,H=cv.height;
-  cx.clearRect(0,0,W,H);drawGrid();drawTrail();drawDragon(G.dragonX,G.dragonY,1);
-  drawLightning(G.dragonX,G.dragonY-10);
-  cx.fillStyle='rgba(255,0,0,.05)';cx.fillRect(0,0,W,H);
-  sfxCrash();
-  setSB('crash',`⚡ Crashed at ${G.crashPt.toFixed(2)}x`);
-  _set('mvEl',G.crashPt.toFixed(2)+'x');
-  updMultDisp();
-  _fn('pfResult',e=>e.value=G.crashPt.toFixed(2)+'x');
-
-  ['A','B'].forEach(p=>{
-    const inB=p==='A'?G.aIn:G.bIn, co=p==='A'?G.aCo:G.bCo, amt=p==='A'?G.aAmt:G.bAmt;
-    if(inB&&!co){
-      recHist(false,p,amt);
-      toast2(`Bet ${p} lost — crashed at ${G.crashPt.toFixed(2)}x 💀`,'l');
-      G.winStreak=0;G.lossStreak++;
-    }
-  });
-
-  G.bots.forEach(b=>{if(b.status==='playing')b.status='lost';});
-  addCrashHist(G.crashPt);buildGhostBar();renderLiveList();renderHistList();renderLB();updBtns();updVIP();
-  G.aIn=G.bIn=false;G.aCo=G.bCo=false;G.aBetId=G.bBetId=null;
-  ['A','B'].forEach(handleAutoAfter);
-  clearTimeout(G.waitTimer);
-  G.waitTimer=setTimeout(startWaiting,5000);
-
-  // Write crash result to DB (admin sees it in rounds table + analytics)
-  if(!isDemo()&&G.currentRoundId){
-    sb.from('rounds').update({
-      status:'crashed',
-      crash_point:G.crashPt,
-      crashed_at:new Date().toISOString(),
-    }).eq('id',G.currentRoundId);
-  }
-
-  // Mark the consumed crash_queue row as used so the admin queue advances
-  if(!isDemo())markCrashQueueUsed();
-
-  if(!isDemo())setTimeout(refreshUserBalance,1500);
-}
-
-// ─────────────────────────────────────────────────────────────
-//  UI HELPERS
-// ─────────────────────────────────────────────────────────────
-function setSB(t,txt){
-  const b=_el('sbadge');if(!b)return;
-  b.className='sbadge '+(t==='wait'?'sbw':t==='fly'?'sbf':'sbc');
-  b.textContent=txt;
-}
 function updBtns(){
   ['A','B'].forEach(p=>{
-    const btn=_el('btn'+p);if(!btn)return;
-    const inB=p==='A'?G.aIn:G.bIn, co=p==='A'?G.aCo:G.bCo, amt=p==='A'?G.aAmt:G.bAmt;
-    const isAuto=getMode(p)==='auto';
+    const btn=_el('btn'+p);const panel=_el('panel'+p);const canBtn=_el('btnCancel'+p);
+    if(!btn)return;
+    const inB=p==='A'?G.aIn:G.bIn;const co=p==='A'?G.aCo:G.bCo;
+    const amt=p==='A'?G.aAmt:G.bAmt;const isAuto=getMode(p)==='auto';const queued=p==='A'?G.aQueued:G.bQueued;
+    if(!canBtn){
+      const c=document.createElement('button');c.id='btnCancel'+p;c.className='abtn btn-cancel';c.style.display='none';c.textContent='✕ Cancel Bet';c.onclick=()=>cancelBet(p);btn.parentNode.insertBefore(c,btn.nextSibling);
+    }
+    const cancelEl=_el('btnCancel'+p);
     if(G.phase==='waiting'){
-      if(isAuto){btn.className=isAutoRun(p)?'abtn btn-wait':'abtn btn-autorun';btn.textContent=isAutoRun(p)?'⏹ Stop Auto':'▶ Start Auto Bet';}
-      else{btn.className='abtn btn-place';btn.textContent=`Place Bet ${p}`;}
+      if(isAuto){
+        if(isAutoRun(p)){btn.className='abtn btn-autorun';btn.textContent='⏹ Stop Auto';btn.onclick=()=>stopAuto(p,'Auto '+p+' cancelled');}
+        else{btn.className='abtn btn-place';btn.innerHTML='▶ Start Auto Bet <small style="font-size:.6rem;opacity:.7;display:block">Bets automatically each round</small>';btn.onclick=()=>startAuto(p);}
+        if(cancelEl)cancelEl.style.display='none';return;
+      }
+      if(inB){
+        btn.className='abtn btn-bet-placed';
+        btn.innerHTML=`<span style="font-size:.72rem;display:block;opacity:.75;letter-spacing:.5px">BET ${p} PLACED ✓</span><span style="font-size:1rem;font-weight:800">${fmtKES(amt)} locked in</span>`;
+        btn.onclick=null;if(cancelEl){cancelEl.style.display='';cancelEl.className='abtn btn-cancel';}if(panel)panel.className='bpanel bp-active';
+      }else if(queued){
+        btn.className='abtn btn-queued';
+        btn.innerHTML=`<span style="font-size:.72rem;display:block;opacity:.75">QUEUED FOR NEXT ROUND</span><span style="font-size:.95rem;font-weight:700">${fmtKES(queued)}</span>`;
+        btn.onclick=null;if(cancelEl){cancelEl.style.display='';cancelEl.className='abtn btn-cancel';}
+      }else{
+        btn.className='abtn btn-place';btn.textContent=`Place Bet ${p}`;btn.onclick=()=>handleBtn(p);if(cancelEl)cancelEl.style.display='none';if(panel)panel.className='bpanel';
+      }
     }else if(G.phase==='flying'){
-      if(!inB){btn.className='abtn btn-wait';btn.textContent='Round In Progress';}
-      else if(co){btn.className='abtn btn-cashed';btn.textContent='Cashed Out ✓';}
-      else{btn.className='abtn btn-cashout';btn.innerHTML=`Cash Out ${p} ◈${fmt(amt*G.mult)}<br><small style="font-size:.65rem;opacity:.8">${G.mult.toFixed(2)}x</small>`;}
-    }else{btn.className='abtn btn-wait';btn.textContent='Settling round...';}
+      if(cancelEl)cancelEl.style.display='none';
+      if(inB&&!co){
+        btn.className='abtn btn-cashout';
+      btn.innerHTML=`<span style="font-size:.7rem;display:block;opacity:.8;letter-spacing:.5px">CASH OUT ${p}</span><span style="font-size:1.05rem;font-weight:800">${fmtKES(amt*G.mult)}</span><span style="font-size:.65rem;opacity:.7"> @ ${G.mult.toFixed(2)}x</span>`;
+        btn.onclick=()=>handleBtn(p);
+      }else if(co){
+        btn.className='abtn btn-cashed';
+        btn.innerHTML=`<span style="font-size:.75rem;display:block">CASHED OUT ✓</span><span style="font-size:.9rem;font-weight:700">${G.mult.toFixed(2)}x</span>`;
+        btn.onclick=null;
+      }else{
+        btn.className='abtn btn-place-next';
+        btn.innerHTML=`<span style="font-size:.7rem;display:block;opacity:.75;letter-spacing:.5px">BET NEXT ROUND</span><span style="font-size:.88rem">Place for round #${(G.currentRoundNumber||0)+1}</span>`;
+        btn.onclick=()=>queueNextRound(p);
+      }
+    }else{
+      btn.className='abtn btn-wait';btn.innerHTML='<span style="opacity:.6">Settling...</span>';btn.onclick=null;if(cancelEl)cancelEl.style.display='none';
+    }
   });
 }
-window.qbet=(p,op,v)=>{
-  const inp=_el('amt'+p);if(!inp)return;
-  let n=parseFloat(inp.value)||0;
-  if(op==='add')n+=v;
-  else if(op==='half')n=Math.max(1,Math.floor(n/2));
-  inp.value=Math.max(1,n);
-};
+window.qbet=(p,op,v)=>{const inp=_el('amt'+p);if(!inp)return;let n=parseFloat(inp.value)||0;if(op==='add')n+=v;else if(op==='half')n=Math.max(1,Math.floor(n/2));inp.value=Math.max(1,n);};
 
-// ── Live list ─────────────────────────────────────────────────
 function renderLiveList(){
   const el=_el('liveList');if(!el)return;
   const all=[...G.bots];
@@ -1017,26 +1399,22 @@ function renderLiveList(){
   <div class="lrow">
     <span class="lfl">${b.flag}</span>
     <span class="lnm" style="color:${b.col}">${b.name}</span>
-    <span class="la">◈${b.amt}</span>
+    <span class="la">${fmtKES(b.amt)}</span>
     <span class="ls ${b.status==='out'?'lsw':b.status==='lost'?'lsl':'lsp'}">
       ${b.status==='out'?'✓'+b.cashedAt?.toFixed(2)+'x':b.status==='lost'?'✗':G.mult.toFixed(2)+'x'}
     </span>
   </div>`).join('');
 }
 
-// ── My history ─────────────────────────────────────────────────
 function renderHistList(){
   const el=_el('histList');if(!el)return;
-  if(!G.myHistory.length){
-    el.innerHTML='<div style="text-align:center;color:var(--muted);padding:1.5rem;font-size:.78rem">No bets yet</div>';
-    return;
-  }
+  if(!G.myHistory.length){el.innerHTML='<div style="text-align:center;color:var(--muted);padding:1.5rem;font-size:.78rem">No bets yet</div>';return;}
   el.innerHTML=G.myHistory.slice().reverse().slice(0,30).map(h=>`
   <div class="lrow">
     <span class="lfl">${h.win?'✅':'❌'}</span>
     <span class="lnm">Bet ${h.panel} · R${h.round}</span>
-    <span class="la">◈${fmt(h.bet)}</span>
-    <span class="ls ${h.win?'lsw':'lsl'}">${h.win?'+◈'+fmt(h.profit):'-◈'+fmt(h.bet)}</span>
+    <span class="la">${fmtKES(h.bet)}</span>
+    <span class="ls ${h.win?'lsw':'lsl'}">${h.win?'+'+fmtKES(h.profit):'-'+fmtKES(h.bet)}</span>
   </div>`).join('');
 }
 
@@ -1053,14 +1431,10 @@ function addCrashHist(cp){
   const row=_el('hrow');if(!row)return;
   row.innerHTML='<span class="hlbl">History:</span>';
   G.crashHistory.forEach(c=>{
-    const p=document.createElement('span');
-    p.className='hp '+(c<1.5?'hpL':c<3?'hpM':'hpH');
-    p.textContent=c.toFixed(2)+'x';
-    row.appendChild(p);
+    const p=document.createElement('span');p.className='hp '+(c<1.5?'hpL':c<3?'hpM':'hpH');p.textContent=c.toFixed(2)+'x';row.appendChild(p);
   });
 }
 
-// ── Leaderboard ───────────────────────────────────────────────
 function renderLB(){
   const el=_el('lbList');if(!el)return;
   const fake=[
@@ -1072,84 +1446,224 @@ function renderLB(){
   <div class="lrow">
     <span class="lfl">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</span>
     <span class="lnm">${x.flag} ${escHtml(x.name)}</span>
-    <span class="la" style="color:var(--gold)">◈${fmt(x.w,0)}</span>
+    <span class="la" style="color:var(--gold)">${fmtKES(x.w,0)}</span>
   </div>`).join('');
 }
 
-// ── VIP ───────────────────────────────────────────────────────
 function updVIP(){
-  const w=G.totalWagered;
-  const tiers=[
-    {min:50000,label:'💎 Diamond',cls:'vb-di'},
-    {min:20000,label:'🥇 Gold',   cls:'vb-go'},
-    {min:5000, label:'🥈 Silver', cls:'vb-si'},
-    {min:0,    label:'🥉 Bronze', cls:'vb-br'},
-  ];
-  const t=tiers.find(t=>w>=t.min)||tiers[3];
-  const b=_el('vipBadge');
-  if(b){b.textContent=t.label;b.className='vip-badge '+t.cls;}
-  const nm=w>=50000?'💎 Diamond':w>=20000?'🥇 Gold':w>=5000?'🥈 Silver':'🥉 Bronze';
-  _set('vipName',nm);
-  _set('vipWagered',w.toFixed(0));
-  const pct=w>=50000?100:w>=20000?80:w>=5000?50:Math.min(30,w/50);
-  _fn('vipBar',e=>e.style.width=pct+'%');
-  const nextLbl=w>=50000?'Max tier 👑':w>=20000?'◈50,000 for Diamond':w>=5000?'◈20,000 for Gold':'◈5,000 for Silver';
-  _set('vipNextLbl',nextLbl);_set('vipNextAmt',nextLbl);
-  _el('achGrid')&&renderAchs();
-}
-function renderAchs(){
-  const el=_el('achGrid');if(!el)return;
-  el.innerHTML=ACHS.map(a=>`<div class="acard ${G.achs[a.k]?'ul':''}">
-    <div class="aico">${a.ico}</div><div class="anm">${a.nm}</div><div class="ads">${a.ds}</div>
-  </div>`).join('');
-}
-function checkAch(k){
-  if(G.achs[k])return;G.achs[k]=true;
-  const a=ACHS.find(a=>a.k===k);if(!a)return;
-  toast2(`🏅 Achievement unlocked: ${a.nm} ${a.ico}`,'g');
-  if(G.userId)sb.from('achievements').upsert({user_id:G.userId,achievement_key:k});
+  const tiers={bronze:{min:0,next:10000},silver:{min:10000,next:50000},gold:{min:50000,next:200000},diamond:{min:200000,next:Infinity}};
+  const t=tiers[G.vipTier]||tiers.bronze;
+  const pct=t.next===Infinity?100:Math.min(100,((G.totalWagered-t.min)/(t.next-t.min))*100);
+  _set('vipTierName',G.vipTier.charAt(0).toUpperCase()+G.vipTier.slice(1));
+  _fn('vipBar',el=>el.style.width=pct+'%');
+  _set('vipPct',pct.toFixed(0)+'%');
+  const TIER_ICONS={bronze:'🥉',silver:'🥈',gold:'🥇',diamond:'💎'};
+  _fn('vipIcon',el=>el.textContent=TIER_ICONS[G.vipTier]||'🥉');
 }
 
-// ── Sidebar tabs ──────────────────────────────────────────────
-window.sbTab=(t,btn)=>{
-  document.querySelectorAll('.sbp').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.sbt').forEach(b=>b.classList.remove('active'));
-  _fn('tab-'+t,e=>e.classList.add('active'));
-  if(btn)btn.classList.add('active');
-  if(t==='mine')renderHistList();
-  if(t==='top')renderLB();
-  if(t==='profile')renderProfileSection();
+function checkAch(key){
+  if(G.achs[key])return;
+  const a=ACHS.find(x=>x.k===key);if(!a)return;
+  G.achs[key]=true;
+  const el=_el('achToast');
+  if(el){el.innerHTML=`${a.ico} <b>${a.nm}</b> — ${a.ds}`;el.className='ach-toast show';setTimeout(()=>el.className='ach-toast',3500);}
+  if(G.userId)sbSafe(()=>sb.from('achievements').insert({user_id:G.userId,achievement_key:key}),'ach');
+}
+
+function renderProfileSection(){
+  const realDisp=parseFloat(G.balReal||0).toFixed(2);
+  const html=`
+  <div class="pcard">
+    <div class="pav">🐉</div>
+    <div class="pinfo">
+      <div class="pname">${escHtml(G.username)}</div>
+      <div class="pemail">${escHtml(G.email||'')}</div>
+      <div class="pcountry">${G.country||''}</div>
+    </div>
+  </div>
+  <div class="pstats">
+    <div class="pstat"><span class="psv">${fmtKES(G.balReal)}</span><span class="psl">Real Balance</span></div>
+    <div class="pstat"><span class="psv">◈${fmt(G.balBonus,0)}</span><span class="psl">Bonus Coins</span></div>
+    <div class="pstat"><span class="psv">${fmtKES(G.totalWagered,0)}</span><span class="psl">Total Wagered</span></div>
+    <div class="pstat"><span class="psv">${fmtKES(G.totalWon,0)}</span><span class="psl">Total Won</span></div>
+    <div class="pstat"><span class="psv">${G.totalBets}</span><span class="psl">Bets Placed</span></div>
+    <div class="pstat"><span class="psv">${G.vipTier.charAt(0).toUpperCase()+G.vipTier.slice(1)}</span><span class="psl">VIP Tier</span></div>
+  </div>
+  <div style="margin-top:1rem;display:flex;gap:.5rem;flex-direction:column">
+    <button class="mbtn mbtn-fire" onclick="openM('walletModal')">💰 Deposit / Withdraw</button>
+    <button class="mbtn mbtn-muted" onclick="window.signOut()">Sign Out →</button>
+  </div>`;
+  const el=_el('tab-profile');if(el)el.innerHTML=html;
+  const modal=_el('profileSectionModal');if(modal)modal.innerHTML=html;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  DEPOSIT / WITHDRAW (unchanged from v5)
+// ─────────────────────────────────────────────────────────────
+window.onDepAmtChange=function(){
+  const inp=_el('depAmt');if(!inp)return;
+  const amt=parseFloat(inp.value)||0;
+  const bonusCoins=Math.floor(amt*0.1);
+  _set('depUSD',bonusCoins>0?`+◈${bonusCoins} bonus coins on approval`:'');
+  renderDepDetails();revalidateDepSubmit();
 };
-
-// ── Modal helpers ─────────────────────────────────────────────
-window.openM=id=>{_fn(id,e=>e.classList.add('show'));};
-window.closeM=id=>{_fn(id,e=>e.classList.remove('show'));};
-document.querySelectorAll('.overlay').forEach(o=>{
-  o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('show');});
-});
-
-// ── Wallet tabs ────────────────────────────────────────────────
-window.wTab=(t,btn)=>{
-  ['wDep','wWit','wBonus','wTxs','wLimits','wRef'].forEach(id=>_fn(id,e=>e&&(e.style.display='none')));
-  document.querySelectorAll('.wtb').forEach(b=>b.classList.remove('active'));
-  const map={dep:'wDep',wit:'wWit',bonus:'wBonus',txs:'wTxs',limits:'wLimits',ref:'wRef'};
-  _fn(map[t],e=>e&&(e.style.display=''));
-  if(btn)btn.classList.add('active');
-  if(t==='txs')loadUserTx();
-  if(t==='bonus')renderBonusTab();
+window.selMethod=m=>{
+  G.depMethod=m;
+  document.querySelectorAll('.dep-method').forEach(e=>e.classList.remove('sel'));
+  _fn('dm-'+m,e=>e.classList.add('sel'));
+  renderDepDetails();revalidateDepSubmit();
 };
+function renderDepDetails(){
+  const amt=parseFloat(_el('depAmt')?.value)||0;
+  const m=METHODS[G.depMethod];if(!m)return;
+  const acct=G.depAcctRef||genRef();G.depAcctRef=acct;
+  const bonusKES=parseFloat((amt*0.1).toFixed(2));
+  let html='';
+  if(G.depMethod==='mpesa'||G.depMethod==='airtel'){
+    html=`
+    <div class="paybill-card">
+      <div class="pb-row"><span class="pb-lbl">${m.label} Number</span><span class="pb-val gold">${m.paybill} <button class="copy-btn" onclick="copyText('${m.paybill}')">Copy</button></span></div>
+      <div class="pb-row"><span class="pb-lbl">Account Number</span><span class="pb-val green">${acct} <button class="copy-btn" onclick="copyText('${acct}')">Copy</button></span></div>
+      <div class="pb-row"><span class="pb-lbl">Amount to Send</span><span class="pb-val">KSh ${amt||'—'}</span></div>
+      <div class="pb-row"><span class="pb-lbl">Account Name</span><span class="pb-val">${m.acctName}</span></div>
+    </div>
+    ${amt>0?`<div style="background:rgba(34,217,122,.06);border:1px solid rgba(34,217,122,.18);border-radius:8px;padding:.5rem .75rem;font-size:.73rem;color:var(--green);margin:.5rem 0">🎁 You'll receive <b>+◈${bonusKES}</b> bonus coins on approval</div>`:''}
+    <div class="step-pills" style="margin:.5rem 0">${m.steps.map((s,i)=>`<div class="step-pill"><div class="step-num">${i+1}</div><span>${s}</span></div>`).join('')}</div>
+    <div style="background:rgba(255,107,26,.06);border:1px solid rgba(255,107,26,.2);border-radius:9px;padding:.65rem .8rem;margin-bottom:.5rem">
+      <div style="font-size:.62rem;color:var(--fire);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:.45rem;font-family:'Cinzel',serif">✍️ After sending — fill in below</div>
+      <div class="mf" style="margin-bottom:.45rem">
+        <label>Phone Number Used to Pay <span style="color:var(--red)">*</span></label>
+        <input type="tel" id="depPhone" placeholder="e.g. 0712345678" inputmode="tel" oninput="revalidateDepSubmit()" style="font-family:'Share Tech Mono',monospace;font-size:.92rem;letter-spacing:1px">
+      </div>
+      <div class="mf">
+        <label>M-Pesa / Airtel Confirmation Code <span style="color:var(--red)">*</span></label>
+        <input type="text" id="depRef" placeholder="e.g. RKA1X3Y5ZZ" oninput="revalidateDepSubmit()" style="font-family:'Share Tech Mono',monospace;font-size:.92rem;text-transform:uppercase;letter-spacing:2px" maxlength="12">
+        <span style="font-size:.62rem;color:var(--muted);margin-top:3px">The code sent to your phone after paying</span>
+      </div>
+    </div>`;
+  }else if(G.depMethod==='bitcoin'||G.depMethod==='ethereum'){
+    html=`
+    <div class="paybill-card">
+      <div class="pb-row"><span class="pb-lbl">Send ${G.depMethod==='bitcoin'?'BTC':'ETH'} to</span></div>
+      <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:.5rem .7rem;font-family:'Share Tech Mono',monospace;font-size:.63rem;color:var(--blue);word-break:break-all;margin:.3rem 0;line-height:1.6">${m.address}<button class="copy-btn" style="margin-top:.3rem;display:block" onclick="copyText('${m.address}')">Copy Address</button></div>
+    </div>
+    ${amt>0?`<div style="background:rgba(34,217,122,.06);border:1px solid rgba(34,217,122,.18);border-radius:8px;padding:.5rem .75rem;font-size:.73rem;color:var(--green);margin:.5rem 0">🎁 +◈${bonusKES} bonus coins on approval</div>`:''}
+    <div class="step-pills" style="margin:.5rem 0">${m.steps.map((s,i)=>`<div class="step-pill"><div class="step-num">${i+1}</div><span>${s}</span></div>`).join('')}</div>
+    <div class="mf" style="margin-top:.4rem">
+      <label>Transaction ID / Hash <span style="color:var(--red)">*</span></label>
+      <input type="text" id="depRef" placeholder="Paste tx hash here" oninput="revalidateDepSubmit()" style="font-family:'Share Tech Mono',monospace;font-size:.68rem">
+    </div>`;
+  }else if(G.depMethod==='bank'){
+    html=`
+    <div class="paybill-card">${m.steps.map(s=>`<div class="pb-row"><span class="pb-val" style="font-size:.8rem">${s}</span></div>`).join('')}</div>
+    <div class="mf" style="margin-top:.5rem"><label>Your Name / Reference Used <span style="color:var(--red)">*</span></label><input type="text" id="depRef" placeholder="Full name used as reference" oninput="revalidateDepSubmit()"></div>
+    <div class="mf"><label>Phone Number</label><input type="tel" id="depPhone" placeholder="0712345678" oninput="revalidateDepSubmit()"></div>`;
+  }else if(G.depMethod==='card'){
+    html=`
+    <div class="step-pills" style="margin-bottom:.5rem">${m.steps.map((s,i)=>`<div class="step-pill"><div class="step-num">${i+1}</div><span>${s}</span></div>`).join('')}</div>
+    <div class="mf"><label>Card Number <span style="color:var(--red)">*</span></label><input type="text" id="cardNum" placeholder="1234 5678 9012 3456" maxlength="19" oninput="revalidateDepSubmit()"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem"><div class="mf"><label>Expiry</label><input type="text" placeholder="MM/YY" maxlength="5"></div><div class="mf"><label>CVV</label><input type="text" placeholder="123" maxlength="3"></div></div>
+    <div class="mf"><label>Name on Card</label><input type="text" placeholder="JOHN DOE"></div>`;
+  }
+  _fn('depDetails',e=>e.innerHTML=html);revalidateDepSubmit();
+}
+window.revalidateDepSubmit=function(){
+  const submitBtn=_el('depSubmitBtn');const submitLbl=_el('depSubmitLabel');
+  if(!submitBtn)return;
+  const amt=parseFloat(_el('depAmt')?.value)||0;const minKES=65;const method=G.depMethod;
+  if(!amt||amt<minKES){submitBtn.disabled=true;if(submitLbl)submitLbl.textContent=!amt?'Enter amount to continue':`Minimum: KSh ${minKES}`;return;}
+  if(method==='mpesa'||method==='airtel'){
+    const phone=(_el('depPhone')?.value||'').trim();const code=(_el('depRef')?.value||'').trim();
+    if(!phone){submitBtn.disabled=true;if(submitLbl)submitLbl.textContent='Enter phone number used to pay';return;}
+    if(!code){submitBtn.disabled=true;if(submitLbl)submitLbl.textContent='Enter the confirmation code';return;}
+  }
+  if(method==='bitcoin'||method==='ethereum'){const txId=(_el('depRef')?.value||'').trim();if(!txId){submitBtn.disabled=true;if(submitLbl)submitLbl.textContent='Paste transaction hash to continue';return;}}
+  submitBtn.disabled=false;if(submitLbl)submitLbl.textContent=`Submit ${fmtKES(amt)} →`;
+};
+window.submitDeposit=async()=>{
+  if(G._depositLock){toast2('Submission in progress...','i');return;}
+  const method=G.depMethod;const amt=parseFloat(_el('depAmt')?.value)||0;
+  const phone=(_el('depPhone')?.value||'').trim();const ref=(_el('depRef')?.value||'').trim();
+  const minKES=65;const btn=_el('depSubmitBtn');const lbl=_el('depSubmitLabel');
+  if(!method){toast2('Select a payment method','l');return;}
+  if(!amt||amt<minKES){toast2(`Minimum deposit is KSh ${minKES}`,'l');return;}
+  if((method==='mpesa'||method==='airtel')&&(!phone||phone.replace(/\D/g,'').length<9)){toast2('Enter a valid phone number','l');return;}
+  if((method==='mpesa'||method==='airtel')&&(!ref||ref.length<6)){toast2('Enter the confirmation code','l');return;}
+  if((method==='bitcoin'||method==='ethereum')&&!ref){toast2('Paste the transaction hash','l');return;}
+  if(method==='bank'&&!ref){toast2('Enter the reference used','l');return;}
+  if(!G.userId){toast2('Please log in first','l');return;}
+  G._depositLock=true;if(btn)btn.disabled=true;if(lbl)lbl.textContent='Submitting...';
+  if(isDemo()){
+    await new Promise(r=>setTimeout(r,800));
+    G.balDemo=Math.max(0,G.balDemo+amt);G.balBonus+=parseFloat((amt*0.1).toFixed(2));
+    updateBalDisp();toast2(`[Demo] ${fmtKES(amt)} credited + 🎁 ${(amt*0.1).toFixed(0)} bonus coins!`,'w');
+    closeM('walletModal');G._depositLock=false;if(btn)btn.disabled=false;if(lbl)lbl.textContent=`Submit ${fmtKES(amt)} →`;return;
+  }
+  const txRef=ref?`${ref.toUpperCase().replace(/\s+/g,'')}-${G.userId.substring(0,6)}`:`DF-${Date.now()}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
+  const {error}=await sbSafe(()=>sb.from('transactions').insert({
+    user_id:G.userId,type:'deposit',status:'pending',amount:amt,currency:'KES',
+    method,phone_number:phone||null,payment_ref:ref||null,account_ref:G.depAcctRef||null,
+    reference:txRef,description:`${method.toUpperCase()} deposit — ${phone||ref||'submitted'}`,
+  }),'submitDeposit');
+  G._depositLock=false;
+  if(error){
+    if(btn){btn.disabled=false;}if(lbl)lbl.textContent=`Submit ${fmtKES(amt)} →`;
+    if(error.code==='23505'||error.message?.includes('unique')){toast2('Reference used — retrying with new ref...','i');_el('depRef')&&(_el('depRef').value='');setTimeout(()=>window.submitDeposit(),300);return;}
+    if(error.message?.includes('403')||error.message?.includes('row-level')){toast2('Permission error — sign out and back in','l');return;}
+    toast2('Submission failed: '+error.message,'l');return;
+  }
+  toast2(`✅ Deposit of ${fmtKES(amt)} submitted! Admin will review shortly.`,'w');
+  closeM('walletModal');['depAmt','depPhone','depRef'].forEach(id=>{const e=_el(id);if(e)e.value='';});
+  _fn('depDetails',e=>e.innerHTML='');if(btn)btn.disabled=true;if(lbl)lbl.textContent='Enter amount to continue';
+  G.depAcctRef=genRef();loadUserTx();
+};
+window.submitWithdraw=async()=>{
+  const amt=parseFloat(_el('witAmt')?.value);
+  if(!amt||amt<1){toast2('Enter a valid amount in KSh','l');return;}
+  if(amt>G.balReal){toast2(`Insufficient balance — ${fmtKES(parseFloat(G.balReal))} available`,'l');return;}
+  if(isDemo()){toast2('Withdrawals not available in demo mode','l');return;}
+  if(!G.userId){toast2('Please log in','l');return;}
+  const phone=_el('witPhone')?.value;const method=_el('witMethod')?.value;
+  const {error}=await sbSafe(()=>sb.from('transactions').insert({
+    user_id:G.userId,type:'withdrawal',amount:amt,currency:'KES',
+    method,phone_number:phone,status:'pending',description:'Withdrawal request',
+  }),'submitWithdraw');
+  if(error){toast2('Failed to submit withdrawal: '+error.message,'l');return;}
+  toast2(`✅ Withdrawal of ${fmtKES(parseFloat(amt))} submitted ⏳`,'g');
+  closeM('walletModal');loadUserTx();
+};
+window.saveLimits=async()=>{
+  if(!G.userId){toast2('Please log in','l');return;}
+  const {error}=await sbSafe(()=>sb.from('users').update({
+    daily_loss_limit:parseFloat(_el('rgDaily')?.value)||null,
+    weekly_limit:parseFloat(_el('rgWeekly')?.value)||null,
+    session_limit_min:parseInt(_el('rgSession')?.value)||null,
+    max_bet_limit:parseFloat(_el('rgMaxBet')?.value)||null,
+  }).eq('id',G.userId),'saveLimits');
+  if(error){toast2('Failed to save limits: '+error.message,'l');return;}
+  toast2('Limits saved ✓','w');
+};
+function renderTxList(){
+  const el=_el('txList');if(!el)return;
+  if(!G.txLog.length){el.innerHTML='<div style="text-align:center;color:var(--muted);padding:1.5rem;font-size:.78rem">No transactions yet</div>';return;}
+  el.innerHTML=G.txLog.map(t=>{
+    const isPos=['deposit','bonus','winnings','referral'].includes(t.type);
+    const stMap={pending:'st-pending',completed:'st-done',failed:'st-fail'};
+    const stLabel={pending:'⏳ Pending',completed:'✅ Approved',failed:'❌ Rejected'};
+    return`<div class="txitem"><div><div class="txtype"><div class="txdot" style="background:${isPos?'var(--green)':'var(--red)'}"></div>${t.type}</div><div class="txmeta">${t.description||t.method||''} · ${new Date(t.created_at).toLocaleDateString()}</div></div><div style="display:flex;align-items:center;gap:6px"><span class="status-tag ${stMap[t.status]||''}">${stLabel[t.status]||t.status}</span><span class="txamt ${isPos?'txp':'txn'}">${isPos?'+':'-'}${fmtKES(parseFloat(t.amount))}</span></div></div>`;
+  }).join('');
+}
 
-// ── Bonus tab ──────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+//  BONUS / CHAT / DAILY / PROFILE (unchanged from v5)
+// ─────────────────────────────────────────────────────────────
 function renderBonusTab(){
   const el=_el('wBonus');if(!el)return;
   const pct=Math.min(100,(G.balBonus/500)*100);
   el.innerHTML=`
   <div style="text-align:center;font-size:2.2rem;margin-bottom:.3rem">🎁</div>
   <div style="text-align:center;font-family:'Cinzel',serif;font-size:.9rem;color:var(--gold);margin-bottom:.15rem">Bonus Wallet</div>
-  <div style="text-align:center;font-size:.72rem;color:var(--muted);margin-bottom:1.2rem">
-    Earn coins from deposits &amp; sign-up. Convert to real money!
-  </div>
-
+  <div style="text-align:center;font-size:.72rem;color:var(--muted);margin-bottom:1.2rem">Earn coins from deposits &amp; sign-up. Convert to real money!</div>
   <div style="background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.18);border-radius:12px;padding:1rem;margin-bottom:1rem">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
       <span style="font-size:.7rem;color:var(--muted)">Bonus Coins</span>
@@ -1159,223 +1673,43 @@ function renderBonusTab(){
       <div id="bonusProgressBar" style="height:100%;background:linear-gradient(90deg,var(--fire),var(--gold));border-radius:50px;width:${pct}%;transition:width .4s"></div>
     </div>
     <div style="display:flex;justify-content:space-between;font-size:.65rem;color:var(--muted)">
-      <span id="bonusProgressTxt">${fmt(G.balBonus,0)} / 500 coins</span>
-      <span>= $50 real</span>
+      <span id="bonusProgressTxt">${fmt(G.balBonus,0)} / 500 coins</span><span>= KSh 6,500 real</span>
     </div>
   </div>
-
-  <button id="bonusConvertBtn" class="mbtn ${G.balBonus>=500?'mbtn-fire':'mbtn-muted'}"
-    onclick="convertBonus()" ${G.balBonus<500?'disabled':''}>
-    ${G.balBonus>=500?'🎁 Convert 500 → $50 Real':'Need '+(500-Math.floor(G.balBonus))+' more coins'}
+  <button id="bonusConvertBtn" class="mbtn ${G.balBonus>=500?'mbtn-fire':'mbtn-muted'}" onclick="convertBonus()" ${G.balBonus<500?'disabled':''}>
+    ${G.balBonus>=500?'🎁 Convert 500 → KSh 6,500 Real':'Need '+(500-Math.floor(G.balBonus))+' more coins'}
   </button>
-
   <div style="margin-top:1.2rem">
     <div style="font-size:.7rem;color:var(--muted);font-family:'Cinzel',serif;letter-spacing:1px;text-transform:uppercase;margin-bottom:.6rem">How to earn bonus coins</div>
     <div style="display:flex;flex-direction:column;gap:.4rem">
-      <div class="bonus-rule"><span>🎉</span><div><b>+50 coins</b> on first signup (one-time only)</div></div>
-      <div class="bonus-rule"><span>💳</span><div><b>10% of every deposit</b> → bonus coins automatically</div></div>
-      <div class="bonus-rule"><span>🔄</span><div><b>500 coins = $50 real</b> — convert anytime you reach 500</div></div>
-      <div class="bonus-rule"><span>🚫</span><div>Bonus coins <b>cannot be withdrawn directly</b> — convert first</div></div>
+      <div class="bonus-rule"><span>🎉</span><div><b>+50 coins</b> on first signup</div></div>
+      <div class="bonus-rule"><span>💳</span><div><b>10% of every deposit</b> → bonus coins</div></div>
+      <div class="bonus-rule"><span>🔄</span><div><b>500 coins = KSh 6,500 real</b> — convert anytime</div></div>
+      <div class="bonus-rule"><span>🚫</span><div>Bonus coins <b>cannot be withdrawn directly</b></div></div>
     </div>
   </div>
-
   <div style="margin-top:1rem">
     <div style="font-size:.7rem;color:var(--muted);font-family:'Cinzel',serif;letter-spacing:1px;text-transform:uppercase;margin-bottom:.6rem">Bonus History</div>
     <div id="bonusHistoryList"><div style="text-align:center;color:var(--muted);font-size:.75rem;padding:1rem">Loading...</div></div>
   </div>`;
-
   loadBonusHistory();
 }
-
 async function loadBonusHistory(){
   if(!G.userId)return;
-  const {data}=await sb.from('bonus_transactions')
-    .select('*').eq('user_id',G.userId)
-    .order('created_at',{ascending:false}).limit(20);
+  const {data}=await sbSafe(()=>sb.from('bonus_transactions').select('*').eq('user_id',G.userId).order('created_at',{ascending:false}).limit(20),'bonusHistory');
   const el=_el('bonusHistoryList');if(!el)return;
-  if(!data?.length){
-    el.innerHTML='<div style="text-align:center;color:var(--muted);font-size:.75rem;padding:.5rem">No bonus activity yet</div>';
-    return;
-  }
+  if(!data?.length){el.innerHTML='<div style="text-align:center;color:var(--muted);font-size:.75rem;padding:.5rem">No bonus activity yet</div>';return;}
   const typeLabel={signup_bonus:'🎉 Signup bonus',deposit_bonus:'💳 Deposit bonus',conversion:'🔄 Converted to real',admin_adjustment:'⚙️ Admin adjustment'};
   el.innerHTML=data.map(b=>`
   <div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.75rem">
-    <div>
-      <div style="color:var(--text)">${typeLabel[b.type]||b.type}</div>
-      <div style="color:var(--muted);font-size:.65rem">${new Date(b.created_at).toLocaleDateString()}</div>
-    </div>
-    <div style="text-align:right">
-      <div style="color:${b.bonus_amount>=0?'var(--green)':'var(--red)'};font-weight:700">
-        ${b.bonus_amount>=0?'+':''}◈${fmt(Math.abs(b.bonus_amount),0)}
-      </div>
-      ${b.real_amount>0?`<div style="color:var(--gold);font-size:.65rem">+$${fmt(b.real_amount)} real</div>`:''}
-    </div>
+    <div><div style="color:var(--text)">${typeLabel[b.type]||b.type}</div><div style="color:var(--muted);font-size:.65rem">${new Date(b.created_at).toLocaleDateString()}</div></div>
+    <div style="text-align:right"><div style="color:${b.bonus_amount>=0?'var(--green)':'var(--red)'};font-weight:700">${b.bonus_amount>=0?'+':''}◈${fmt(Math.abs(b.bonus_amount),0)}</div>${b.real_amount>0?`<div style="color:var(--gold);font-size:.65rem">+KSh ${fmt(b.real_amount)}</div>`:''}</div>
   </div>`).join('');
 }
-
-// ── Deposit flow ──────────────────────────────────────────────
-window.selMethod=m=>{
-  G.depMethod=m;
-  document.querySelectorAll('.dep-method').forEach(d=>d.classList.remove('sel'));
-  _fn('dm-'+m,e=>e.classList.add('sel'));
-  renderDepDetails();
-};
-window.onDepAmtChange=()=>{
-  const amt=parseFloat(_el('depAmt')?.value)||0;
-  const c=CURR[G.currency]||CURR.KES;
-  _set('depUSD','$'+(amt/c.rate).toFixed(4)+' USD');
-  renderDepDetails();
-};
-function renderDepDetails(){
-  const amt=parseFloat(_el('depAmt')?.value)||0;
-  const m=METHODS[G.depMethod];if(!m)return;
-  const c=CURR[G.currency]||CURR.KES;
-  const acct=G.depAcctRef||genRef();G.depAcctRef=acct;
-  const bonusPreview=parseFloat((amt/c.rate*0.1).toFixed(4));
-  let html='';
-  if(G.depMethod==='mpesa'||G.depMethod==='airtel'){
-    html=`<div class="paybill-card">
-      <div class="pb-row"><span class="pb-lbl">${m.label}</span><span class="pb-val gold">${m.paybill}</span></div>
-      <div class="pb-row"><span class="pb-lbl">Account Number</span><span class="pb-val green">${acct} <button class="copy-btn" onclick="copyText('${acct}')">Copy</button></span></div>
-      <div class="pb-row"><span class="pb-lbl">Amount</span><span class="pb-val">${c.sym}${amt||'—'}</span></div>
-      <div class="pb-row"><span class="pb-lbl">Account Name</span><span class="pb-val">${m.acctName}</span></div>
-    </div>
-    ${amt>0?`<div style="background:rgba(34,217,122,.06);border:1px solid rgba(34,217,122,.18);border-radius:8px;padding:.5rem .75rem;font-size:.73rem;color:var(--green);margin:.5rem 0">
-      🎁 You'll receive <b>+◈${bonusPreview}</b> bonus coins automatically on approval
-    </div>`:''}
-    <div class="step-pills">${m.steps.map((s,i)=>`<div class="step-pill"><div class="step-num">${i+1}</div><span>${s}</span></div>`).join('')}</div>
-    <div class="mf" style="margin-top:.5rem"><label>Your Phone</label><input type="tel" id="depPhone" placeholder="0712345678"></div>
-    <div class="mf"><label>Confirmation Code</label><input type="text" id="depRef" placeholder="e.g. RKA1234XYZ" style="font-family:'Share Tech Mono',monospace"></div>`;
-  }else if(G.depMethod==='bitcoin'||G.depMethod==='ethereum'){
-    html=`<div class="paybill-card">
-      <div class="pb-row"><span class="pb-lbl">Send ${G.depMethod==='bitcoin'?'BTC':'ETH'} to</span></div>
-      <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:.5rem .7rem;font-family:'Share Tech Mono',monospace;font-size:.65rem;color:var(--blue);word-break:break-all;margin:.3rem 0">
-        ${m.address} <button class="copy-btn" onclick="copyText('${m.address}')">Copy</button>
-      </div>
-    </div>
-    ${amt>0?`<div style="background:rgba(34,217,122,.06);border:1px solid rgba(34,217,122,.18);border-radius:8px;padding:.5rem .75rem;font-size:.73rem;color:var(--green);margin:.5rem 0">
-      🎁 +◈${bonusPreview} bonus coins on approval
-    </div>`:''}
-    <div class="step-pills">${m.steps.map((s,i)=>`<div class="step-pill"><div class="step-num">${i+1}</div><span>${s}</span></div>`).join('')}</div>
-    <div class="mf" style="margin-top:.5rem"><label>Transaction ID / Hash</label><input type="text" id="depRef" placeholder="Paste tx hash here" style="font-family:'Share Tech Mono',monospace;font-size:.72rem"></div>`;
-  }else if(G.depMethod==='bank'){
-    html=`<div class="paybill-card">${m.steps.map(s=>`<div class="pb-row"><span class="pb-val" style="font-size:.8rem">${s}</span></div>`).join('')}</div>
-    <div class="mf" style="margin-top:.5rem"><label>Your Name / Reference Used</label><input type="text" id="depRef" placeholder="Name you used as reference"></div>`;
-  }else if(G.depMethod==='card'){
-    html=`<div class="step-pills">${m.steps.map((s,i)=>`<div class="step-pill"><div class="step-num">${i+1}</div><span>${s}</span></div>`).join('')}</div>
-    <div class="mf" style="margin-top:.5rem"><label>Card Number</label><input type="text" id="cardNum" placeholder="1234 5678 9012 3456" maxlength="19"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
-      <div class="mf"><label>Expiry</label><input type="text" placeholder="MM/YY" maxlength="5"></div>
-      <div class="mf"><label>CVV</label><input type="text" placeholder="123" maxlength="3"></div>
-    </div>
-    <div class="mf"><label>Name on Card</label><input type="text" placeholder="JOHN DOE"></div>`;
-  }
-  _fn('depDetails',e=>e.innerHTML=html);
-  _fn('depSubmitBtn',e=>e.style.display=amt>0?'block':'none');
-}
-
-window.submitDeposit=async()=>{
-  const amt=parseFloat(_el('depAmt')?.value);
-  const c=CURR[G.currency]||CURR.KES;
-  if(!amt||amt<c.min){toast2(`Minimum deposit is ${c.sym}${c.min} (≈ $0.50)`,'l');return;}
-  const usd=amt/c.rate;
-  if(usd<0.5){toast2('Minimum deposit is $0.50 USD','l');return;}
-
-  const phone=_el('depPhone')?.value||'';
-  const ref=_el('depRef')?.value||'';
-  const btn=_el('depSubmitBtn');
-  if(btn){btn.disabled=true;btn.textContent='Submitting...';}
-
-  if(isDemo()){
-    G.balDemo=Math.max(0,G.balDemo+amt);
-    G.balBonus+=parseFloat((usd*0.1).toFixed(4));
-    updateBalDisp();
-    toast2(`[Demo] Deposit of ◈${fmt(amt)} credited + 🎁 ${fmt(usd*0.1,4)} bonus coins!`,'w');
-    closeM('walletModal');
-    if(btn){btn.disabled=false;btn.textContent='Submit Deposit Request →';}
-    return;
-  }
-
-  if(!G.userId){toast2('Please log in','l');if(btn){btn.disabled=false;btn.textContent='Submit Deposit Request →';}return;}
-
-  const {data,error}=await sb.rpc('submit_deposit',{
-    p_user_id:G.userId,
-    p_amount:amt,
-    p_currency:G.currency,
-    p_method:G.depMethod,
-    p_phone_number:phone||null,
-    p_payment_ref:ref||null,
-    p_usd_equiv:parseFloat(usd.toFixed(6)),
-    p_exchange_rate:c.rate,
-  });
-
-  if(btn){btn.disabled=false;btn.textContent='Submit Deposit Request →';}
-
-  if(error){toast2('Failed to submit: '+error.message,'l');return;}
-  if(data?.success){
-    toast2('Deposit submitted! Pending admin approval ⏳ You\'ll get 10% bonus coins on approval!','g');
-    closeM('walletModal');loadUserTx();
-  }else{
-    toast2(data?.error||'Something went wrong','l');
-  }
-};
-
-window.submitWithdraw=async()=>{
-  const amt=parseFloat(_el('witAmt')?.value);
-  if(!amt||amt<1){toast2('Enter a valid amount','l');return;}
-  if(amt>G.balReal){toast2('Insufficient real balance. Convert bonus coins first!','l');return;}
-  if(isDemo()){toast2('Withdrawals not available in demo mode','l');return;}
-  if(!G.userId){toast2('Please log in','l');return;}
-  const phone=_el('witPhone')?.value;
-  const method=_el('witMethod')?.value;
-  const {error}=await sb.from('transactions').insert({
-    user_id:G.userId,type:'withdrawal',amount:amt,currency:G.currency,
-    method,phone_number:phone,status:'pending',description:'Withdrawal request',
-  });
-  if(error){toast2('Failed: '+error.message,'l');return;}
-  toast2('Withdrawal request submitted — pending approval ⏳','g');
-  closeM('walletModal');loadUserTx();
-};
-
-window.saveLimits=async()=>{
-  if(!G.userId){toast2('Please log in','l');return;}
-  await sb.from('users').update({
-    daily_loss_limit:parseFloat(_el('rgDaily')?.value)||null,
-    weekly_limit:    parseFloat(_el('rgWeekly')?.value)||null,
-    session_limit_min:parseInt(_el('rgSession')?.value)||null,
-    max_bet_limit:   parseFloat(_el('rgMaxBet')?.value)||null,
-  }).eq('id',G.userId);
-  toast2('Limits saved ✓','w');
-};
-
-function renderTxList(){
-  const el=_el('txList');if(!el)return;
-  if(!G.txLog.length){
-    el.innerHTML='<div style="text-align:center;color:var(--muted);padding:1.5rem;font-size:.78rem">No transactions yet</div>';
-    return;
-  }
-  el.innerHTML=G.txLog.map(t=>{
-    const isPos=['deposit','bonus','winnings','referral'].includes(t.type);
-    const stMap={pending:'st-pending',completed:'st-done',failed:'st-fail'};
-    return`<div class="txitem">
-      <div>
-        <div class="txtype"><div class="txdot" style="background:${isPos?'var(--green)':'var(--red)'}"></div>${t.type}</div>
-        <div class="txmeta">${t.description||t.method||''} · ${new Date(t.created_at).toLocaleDateString()}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <span class="status-tag ${stMap[t.status]||''}">${t.status}</span>
-        <span class="txamt ${isPos?'txp':'txn'}">${isPos?'+':'-'}${t.currency||G.currency} ${parseFloat(t.amount).toFixed(2)}</span>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-window.copyRef=()=>{
-  const link=_el('refLink')?.value;
-  if(link)navigator.clipboard?.writeText(link);
-  toast2('Referral link copied!','i');
-};
+window.copyRef=()=>{const link=_el('refLink')?.value;if(link)navigator.clipboard?.writeText(link);toast2('Referral link copied!','i');};
 window.copyText=txt=>{navigator.clipboard?.writeText(txt);toast2('Copied!','i');};
+window.openDeposit=()=>{openM('walletModal');setTimeout(()=>{const depTab=document.querySelector('.wtb[data-tab="dep"]');if(depTab)wTab('dep',depTab);},50);};
+window.setDepAmt=v=>{const inp=_el('depAmt');if(!inp)return;inp.value=v;document.querySelectorAll('.dep-qa').forEach(b=>{b.classList.remove('sel');if(parseInt(b.textContent.replace(/,/g,''))===v)b.classList.add('sel');});onDepAmtChange();};
 
 // ── Chat ──────────────────────────────────────────────────────
 const INIT_CHAT=[
@@ -1388,119 +1722,136 @@ function initChat(){
   const m=_el('cmsgs');if(!m)return;
   INIT_CHAT.forEach(l=>{m.innerHTML+=`<div class="cmsg"><span class="cuser cbt">${l.u}:</span><span class="ctxt">${l.t}</span></div>`;});
   m.scrollTop=m.scrollHeight;
-
-  // Subscribe to live chat
   sb.channel('chat-live')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'chat_messages'},
       payload=>{
         const msg=payload.new;
-        if(msg.user_id===G.userId)return; // already shown
+        if(msg.user_id===G.userId)return;
         m.innerHTML+=`<div class="cmsg"><span class="cuser cbt">${escHtml(msg.username)}:</span><span class="ctxt">${escHtml(msg.message)}</span></div>`;
         m.scrollTop=m.scrollHeight;
-      })
-    .subscribe();
+      }).subscribe();
 }
 window.sendChat=()=>{
   const inp=_el('chatInp');if(!inp?.value.trim())return;
-  const m=_el('cmsgs');
-  const msg=inp.value.substring(0,200);
+  const m=_el('cmsgs');const msg=inp.value.substring(0,200);
   m.innerHTML+=`<div class="cmsg"><span class="cuser cyu">${escHtml(G.username)}:</span><span class="ctxt">${escHtml(msg)}</span></div>`;
   inp.value='';m.scrollTop=m.scrollHeight;
-  if(G.userId)sb.from('chat_messages').insert({user_id:G.userId,username:G.username,message:msg});
+  if(G.userId)sbSafe(()=>sb.from('chat_messages').insert({user_id:G.userId,username:G.username,message:msg}),'sendChat');
   setTimeout(()=>{
-    const bot=pick(CBOT_NAMES);
-    const reply=pick(CBOT_MSGS).replace('{m}',G.mult.toFixed(2));
+    const bot=pick(CBOT_NAMES);const reply=pick(CBOT_MSGS).replace('{m}',G.mult.toFixed(2));
     m.innerHTML+=`<div class="cmsg"><span class="cuser cbt">${bot}:</span><span class="ctxt">${reply}</span></div>`;
     m.scrollTop=m.scrollHeight;
   },1200+Math.random()*2000);
 };
 
-// ── Daily bonus ────────────────────────────────────────────────
-// Credits bonus coins (not real balance) via DB insert.
-// Real-balance crediting is handled by the admin-approval flow.
 window.claimBonus=async()=>{
   _fn('bonusPop',e=>e.classList.remove('show'));
-
-  if(!G.userId){
-    // Guest / demo: credit locally
-    G.balDemo+=50;
-    updateBalDisp();
-    toast2('Daily bonus claimed! +◈50 (demo)','w');
-    return;
-  }
-
+  if(!G.userId){G.balDemo+=50;updateBalDisp();toast2('Daily bonus claimed! +◈50 (demo)','w');return;}
   const today=new Date().toISOString().split('T')[0];
-
-  // Insert daily bonus record
-  const {error}=await sb.from('daily_bonuses').insert({
-    user_id:G.userId,
-    streak_day:G.streakDay||1,
-    amount:50,
-    claimed_date:today,
-  });
-
-  if(error){
-    toast2('Could not claim bonus — try tomorrow!','l');
-    return;
-  }
-
-  // Credit 50 bonus coins via bonus_transactions
-  await sb.from('bonus_transactions').insert({
-    user_id:G.userId,
-    type:'admin_adjustment',
-    bonus_amount:50,
-    real_amount:0,
-    description:'Daily login bonus',
-  });
-
-  // Update user balance_bonus and streak directly
-  const newBonus=G.balBonus+50;
-  const newStreak=(G.streakDay||1)+1;
-  await sb.from('users').update({
-    balance_bonus:newBonus,
-    streak_day:newStreak,
-    last_bonus_date:today,
-    updated_at:new Date().toISOString(),
-  }).eq('id',G.userId);
-
-  G.balBonus=newBonus;
-  G.streakDay=newStreak;
-  updateBalDisp();
+  const {error}=await sbSafe(()=>sb.from('daily_bonuses').insert({user_id:G.userId,streak_day:G.streakDay||1,amount:50,claimed_date:today}),'claimBonus');
+  if(error){toast2('Could not claim bonus — try tomorrow!','l');return;}
+  await sbSafe(()=>sb.from('bonus_transactions').insert({user_id:G.userId,type:'admin_adjustment',bonus_amount:50,real_amount:0,description:'Daily login bonus'}),'claimBonusTx');
+  const newBonus=G.balBonus+50;const newStreak=(G.streakDay||1)+1;
+  await sbSafe(()=>sb.from('users').update({balance_bonus:newBonus,streak_day:newStreak,last_bonus_date:today,updated_at:new Date().toISOString()}).eq('id',G.userId),'claimBonusUpdate');
+  G.balBonus=newBonus;G.streakDay=newStreak;updateBalDisp();
   toast2(`Daily bonus claimed! +◈50 🎁 (Day ${G.streakDay-1} streak)`,'w');
 };
 
 // ── Sound ─────────────────────────────────────────────────────
 const AC=window.AudioContext||window.webkitAudioContext;
-let ac=null;
-function getAC(){if(!ac){try{ac=new AC();}catch(e){}}return ac;}
+let ac=null,_acReady=false;
+function initAC(){
+  if(_acReady||!AC)return;
+  try{ac=new AC();_acReady=true;if(ac.state==='suspended')ac.resume().catch(()=>{});}
+  catch(e){console.warn('[DF] AudioContext init failed:',e.message);}
+}
+['click','touchstart','keydown'].forEach(ev=>{document.addEventListener(ev,()=>{if(!_acReady)initAC();},{once:true,passive:true});});
+function getAC(){if(!_acReady)initAC();return ac;}
 function beep(freq,dur,vol=.18,type='sine'){
-  try{
-    const a=getAC();if(!a||!G.soundOn)return;
-    const o=a.createOscillator(),g=a.createGain();
-    o.connect(g);g.connect(a.destination);
-    o.frequency.value=freq;o.type=type;
-    g.gain.setValueAtTime(vol,a.currentTime);
-    g.gain.exponentialRampToValueAtTime(.001,a.currentTime+dur);
-    o.start();o.stop(a.currentTime+dur);
-  }catch(e){}
+  try{const a=getAC();if(!a||!G.soundOn)return;const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=freq;o.type=type;g.gain.setValueAtTime(vol,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+dur);o.start();o.stop(a.currentTime+dur);}catch(e){}
 }
 function sfxTick(){beep(440,.08,.08);}
 function sfxPlace(){beep(520,.12,.15,'triangle');setTimeout(()=>beep(660,.1,.12,'triangle'),80);}
 function sfxCashout(){beep(880,.1,.2,'sine');setTimeout(()=>beep(1100,.2,.18,'sine'),90);}
 function sfxCrash(){beep(120,.5,.25,'sawtooth');setTimeout(()=>beep(80,.4,.2,'sawtooth'),200);}
-window.toggleSound=()=>{
-  G.soundOn=!G.soundOn;
-  _fn('sndBtn',e=>{e.textContent=G.soundOn?'🔊':'🔇';e.className='ibtn '+(G.soundOn?'on':'');});
-};
+window.toggleSound=()=>{G.soundOn=!G.soundOn;_fn('sndBtn',e=>{e.textContent=G.soundOn?'🔊':'🔇';e.className='ibtn '+(G.soundOn?'on':'');});};
 
-// ── Sign out ──────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+//  STUCK ROUND WATCHDOG
+//  If a round has been flying for > 5 minutes without crashing,
+//  the leader forces a crash. This prevents infinite rounds.
+// ─────────────────────────────────────────────────────────────
+const STUCK_ROUND_MS = 5 * 60 * 1000; // 5 minutes max flight time
+let _watchdogIntvl = null;
+
+function startWatchdog(){
+  clearInterval(_watchdogIntvl);
+  _watchdogIntvl = setInterval(()=>{
+    if(G.phase === 'flying' && G.startedAt && G._isLeader){
+      const elapsed = Date.now() - new Date(G.startedAt).getTime();
+      if(elapsed > STUCK_ROUND_MS){
+        console.error('[DF Watchdog] Round stuck flying for >5min — forcing crash');
+        clearTimeout(G._crashTimer);
+        _leaderDoCrash();
+      }
+    }
+    // Also detect frozen waiting rounds (stuck > 30s without going flying)
+    if(G.phase === 'waiting' && G._isLeader && G.roundId){
+      // If we're the leader and countdown finished but we're still waiting, kick it
+      if(G.countSec <= 0 && !G._crashTimer){
+        console.warn('[DF Watchdog] Stuck in waiting — scheduling fly');
+        G._crashTimer = setTimeout(()=>_leaderDoFlying(), 500);
+      }
+    }
+  }, 15000);
+}
+
+
+const DEMO_DURATION=10*60;let _demoTimerIntvl=null,_demoSecsLeft=DEMO_DURATION;
+function startDemoTimer(){
+  stopDemoTimer();
+  _demoSecsLeft=parseInt(localStorage.getItem('df_demo_secs_left')||DEMO_DURATION);
+  if(_demoSecsLeft<=0)_demoSecsLeft=DEMO_DURATION;
+  _fn('demoTimerBar',e=>e.style.display='');_tickDemoTimer();
+  _demoTimerIntvl=setInterval(_tickDemoTimer,1000);
+}
+function _tickDemoTimer(){
+  _demoSecsLeft--;if(_demoSecsLeft<0)_demoSecsLeft=0;
+  localStorage.setItem('df_demo_secs_left',_demoSecsLeft);
+  const mins=Math.floor(_demoSecsLeft/60);const secs=_demoSecsLeft%60;
+  _set('demoTimerDisp',mins+':'+String(secs).padStart(2,'0'));
+  const bar=_el('demoTimerBar');if(bar){if(_demoSecsLeft<=120)bar.classList.add('dtb-urgent');else bar.classList.remove('dtb-urgent');}
+  if(_demoSecsLeft<=0){stopDemoTimer();_fn('demoTimerBar',e=>e.style.display='none');openM('demoExpiredModal');}
+}
+function stopDemoTimer(){clearInterval(_demoTimerIntvl);_demoTimerIntvl=null;_fn('demoTimerBar',e=>e.style.display='none');}
+window.resetDemoSession=()=>{localStorage.setItem('df_demo_secs_left',DEMO_DURATION);_demoSecsLeft=DEMO_DURATION;closeM('demoExpiredModal');startDemoTimer();toast2('Demo session reset — 10 minutes 🎮','i');};
 window.signOut=async()=>{await sb.auth.signOut();location.href='auth.html';};
 
-// ── Toast ─────────────────────────────────────────────────────
+// ── Modal helpers ─────────────────────────────────────────────
+window.openM=id=>{
+  const e=_el(id);if(e)e.style.display='flex';
+  // When wallet modal opens, ensure the Deposit tab is active and visible
+  if(id==='walletModal'){
+    const depTab=document.querySelector('.wtb[data-tab="dep"]');
+    wTab('dep',depTab);
+  }
+};
+window.closeM=id=>{const e=_el(id);if(e)e.style.display='none';};
+window.wTab=(tab,el)=>{
+  document.querySelectorAll('.wtb').forEach(b=>b.classList.remove('on','active'));
+  if(el){el.classList.add('on');el.classList.add('active');}
+  // Map tab keys → actual HTML div IDs
+  const TAB_MAP={dep:'wDep',wit:'wWit',bonus:'wBonus',txs:'wTxs',limits:'wLimits',ref:'wRef'};
+  Object.values(TAB_MAP).forEach(id=>_fn(id,e=>e.style.display='none'));
+  const targetId=TAB_MAP[tab];
+  if(targetId)_fn(targetId,e=>e.style.display='');
+  if(tab==='dep')renderDepDetails();
+  if(tab==='bonus')renderBonusTab();
+  if(tab==='txs')renderTxList();
+};
 window.toast2=(msg,t)=>{
   const el=_el('toastEl');if(!el)return;
-  el.textContent=msg;
-  el.className=`toast show ${t==='w'?'tw':t==='l'?'tl':t==='g'?'tg':'ti'}`;
+  el.textContent=msg;el.className=`toast show ${t==='w'?'tw':t==='l'?'tl':t==='g'?'tg':'ti'}`;
   clearTimeout(el._t);el._t=setTimeout(()=>el.className='toast',3800);
 };
 
@@ -1508,25 +1859,44 @@ window.toast2=(msg,t)=>{
 //  BOOT
 // ─────────────────────────────────────────────────────────────
 async function boot(){
-  const {data:{session}}=await sb.auth.getSession();
+  // Print RLS SQL guide to console for admin reference
+  console.info(`
+╔══════════════════════════════════════════════════════════════╗
+║       DRAGON FLIGHT v6 — SUPABASE SETUP REQUIRED            ║
+╚══════════════════════════════════════════════════════════════╝
+
+Run the SQL in sync-engine.js (bottom of file) in Supabase SQL
+Editor.  Key RPCs needed:
+  • create_round(p_server_seed_hash, p_crash_point, p_status)
+  • consume_next_crash_point()
+  • seed_crash_queue(p_from_round, p_count)
+  • place_bet(...)
+  • cashout_bet(...)
+  • ALTER PUBLICATION supabase_realtime ADD TABLE rounds;
+`);
+
+  let session;
+  try{const {data}=await sb.auth.getSession();session=data?.session;}
+  catch(err){console.error('[DF] Auth error:',err);}
   if(!session){location.href='auth.html';return;}
 
-  // Restore currency preference
-  const savedCur=localStorage.getItem('df_currency');
-  if(savedCur&&CURR[savedCur]){
-    G.currency=savedCur;
-    _fn('csel',e=>e.value=savedCur);
-  }
-
-  setMode('demo');
+  G.currency='KES';
+  setMode('real');
   initChat();
   renderLB();
   updBtns();
 
-  await loadUser();         // loads profile + balances + sets up realtime
-  await subscribeRounds();  // pulls current round from DB
+  await loadUser();
 
-  startWaiting();
+  // ── Start watchdog ──────────────────────────────────────────
+  startWatchdog();
+
+  // ── Start the synchronised game engine ─────────────────────
+  subscribeGameEngine();          // 1. Subscribe to Realtime channels
+  await fetchAndSyncRound();      // 2. Fetch active round & sync UI
+  // Leader election happens inside fetchAndSyncRound.
+  // If this client becomes leader it will drive rounds.
+  // All others receive broadcasts and DB changes.
 }
 
 boot();

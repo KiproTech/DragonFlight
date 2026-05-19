@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dragon Flight — Bet · Soar · Win</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐉</text></svg>">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,41 +15,38 @@
     <div class="logo">🐉 Dragon Flight</div>
     <div class="hm">
       <div class="mode-tgl">
-        <button class="mdb don" id="demoBtn" onclick="setMode('demo')">Demo</button>
-        <button class="mdb"     id="realBtn" onclick="setMode('real')">Real</button>
+        <button class="mdb" id="demoBtn" onclick="setMode('demo')">Demo</button>
+        <button class="mdb ron" id="realBtn" onclick="setMode('real')">Real</button>
       </div>
       <div class="vip-badge vb-br" id="vipBadge" onclick="openM('achModal')">🥉 Bronze</div>
     </div>
     <div class="hr">
-      <select class="csel" id="csel" onchange="setCurrency(this.value)">
-        <option value="KES">🇰🇪 KES</option>
-        <option value="UGX">🇺🇬 UGX</option>
-        <option value="TZS">🇹🇿 TZS</option>
-        <option value="NGN">🇳🇬 NGN</option>
-        <option value="GHS">🇬🇭 GHS</option>
-        <option value="ZAR">🇿🇦 ZAR</option>
-        <option value="RWF">🇷🇼 RWF</option>
-        <option value="ETB">🇪🇹 ETB</option>
-        <option value="USD">🇺🇸 USD</option>
-        <option value="GBP">🇬🇧 GBP</option>
-        <option value="EUR">🇪🇺 EUR</option>
-        <option value="INR">🇮🇳 INR</option>
-      </select>
-      <div class="balpill" onclick="openM('walletModal')">
-        <span class="bic">◈</span>
-        <span class="biv" id="balDisp">10,000.00</span>
-        <span style="color:var(--muted);font-size:.68rem">▼</span>
+      <!-- Balance + Deposit pill -->
+      <div class="bal-dep-wrap mode-real">
+        <div class="balpill" onclick="openM('walletModal')" title="View wallet">
+          <span class="bic" id="balIcon">🇰🇪</span>
+          <span class="biv" id="balDisp">KSh 0.00</span>
+        </div>
+        <button class="dep-quick-btn" onclick="openDeposit()">+ Deposit</button>
       </div>
-      <!-- Bonus coins quick display -->
-      <div class="balpill" style="background:rgba(245,197,24,.08);border-color:rgba(245,197,24,.2);cursor:pointer"
-           onclick="openM('walletModal');setTimeout(()=>document.querySelector('.wtb[data-tab=bonus]')?.click(),80)">
-        <span style="font-size:.75rem">🎁</span>
+
+      <!-- Bonus coins -->
+      <div class="balpill bonus-pill"
+           onclick="openM('walletModal');setTimeout(()=>{const t=document.querySelector('.wtb[data-tab=bonus]');if(t)wTab('bonus',t);},80)"
+           title="Bonus coins">
+        <span>🎁</span>
         <span class="biv" id="bonusQuickDisp" style="color:var(--gold)">0</span>
       </div>
-      <button class="ibtn on" id="sndBtn" onclick="toggleSound()">🔊</button>
+
+      <button class="ibtn on" id="sndBtn" onclick="toggleSound()" title="Sound">🔊</button>
       <button class="ibtn" title="Profile" onclick="openM('profileModal')">👤</button>
     </div>
   </header>
+
+  <!-- ══════════════ MODE INDICATOR BAR ══════════════ -->
+  <div class="mode-indicator-bar real-mode" id="modeIndicatorBar">
+    ● Real Money Mode — Your balance is live
+  </div>
 
   <!-- ══════════════ MAIN ══════════════ -->
   <div id="main">
@@ -59,7 +57,7 @@
       <!-- Canvas wrapper -->
       <div id="cw">
         <canvas id="cv"></canvas>
-        <div class="dmwm show" id="dmwm"><span>DEMO</span></div>
+        <div class="dmwm" id="dmwm"><span>DEMO</span></div>
         <div class="sbadge sbw" id="sbadge">Waiting for round...</div>
 
         <div class="mw" id="mwrap" style="display:none">
@@ -250,6 +248,36 @@
     </div><!-- /sb -->
 
   </div><!-- /main -->
+  <!-- DEMO SESSION TIMER (10-min cap) -->
+  <div class="demo-timer-bar" id="demoTimerBar" style="display:none">
+    <span class="dtb-icon">🎮</span>
+    <span class="dtb-txt">Demo time: <b id="demoTimerDisp">10:00</b> remaining</span>
+    <button class="dtb-dep" onclick="openDeposit()">Deposit to Play Real →</button>
+  </div>
+
+  <!-- DEMO EXPIRED OVERLAY -->
+  <div class="overlay" id="demoExpiredModal">
+    <div class="modal" style="max-width:360px;text-align:center">
+      <div class="mbody" style="padding:2rem 1.5rem;gap:1rem;align-items:center">
+        <div style="font-size:2.5rem">⏰</div>
+        <div style="font-family:'Cinzel',serif;font-size:1.1rem;color:var(--gold);font-weight:700">Demo Time Up!</div>
+        <div style="font-size:.82rem;color:var(--muted);line-height:1.6">
+          You've used your 10-minute demo session.<br>
+          Deposit now to keep playing with <b style="color:var(--green)">real money</b> and win real rewards!
+        </div>
+        <div style="background:rgba(34,217,122,.06);border:1px solid rgba(34,217,122,.2);border-radius:10px;padding:.75rem 1rem;width:100%;font-size:.78rem;color:var(--green)">
+          🎁 First deposit gets you <b>10% bonus coins</b> + ◈50 welcome bonus!
+        </div>
+        <button class="mbtn mbtn-green" style="font-size:.88rem" onclick="closeM('demoExpiredModal');openDeposit()">
+          💰 Make a Deposit →
+        </button>
+        <button class="mbtn mbtn-ghost" style="font-size:.72rem;padding:.4rem" onclick="resetDemoSession()">
+          ↺ Restart Demo (10 min)
+        </button>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /app -->
 
 <!-- ══════════════ MODALS ══════════════ -->
@@ -285,11 +313,11 @@
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem;margin-bottom:.9rem">
         <div style="background:rgba(34,217,122,.06);border:1px solid rgba(34,217,122,.18);border-radius:9px;padding:.5rem .6rem;text-align:center">
           <div style="font-size:.57rem;color:var(--muted);margin-bottom:.2rem;letter-spacing:.5px">REAL</div>
-          <div id="wRealBal" style="font-family:'Share Tech Mono',monospace;font-size:.82rem;color:#22d97a;font-weight:700">◈0.00</div>
+          <div id="wRealBal" style="font-family:'Share Tech Mono',monospace;font-size:.82rem;color:#22d97a;font-weight:700">KSh 0.00</div>
         </div>
         <div style="background:rgba(77,166,255,.06);border:1px solid rgba(77,166,255,.18);border-radius:9px;padding:.5rem .6rem;text-align:center">
           <div style="font-size:.57rem;color:var(--muted);margin-bottom:.2rem;letter-spacing:.5px">DEMO</div>
-          <div id="wDemoBal" style="font-family:'Share Tech Mono',monospace;font-size:.82rem;color:#4da6ff;font-weight:700">◈0.00</div>
+          <div id="wDemoBal" style="font-family:'Share Tech Mono',monospace;font-size:.82rem;color:#4da6ff;font-weight:700">KSh 0.00</div>
         </div>
         <div style="background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.18);border-radius:9px;padding:.5rem .6rem;text-align:center;cursor:pointer"
              onclick="wTab('bonus',document.querySelector('.wtb[data-tab=bonus]'))">
@@ -309,41 +337,78 @@
 
       <!-- DEPOSIT -->
       <div id="wDep">
-        <div class="min-note">Minimum deposit: <span id="minDepTxt">KES 65</span> (≈ $0.50 USD)</div>
-        <div style="background:rgba(34,217,122,.06);border:1px solid rgba(34,217,122,.18);border-radius:8px;padding:.5rem .75rem;font-size:.72rem;color:var(--green);margin-bottom:.5rem">
-          🎁 Every deposit gives you <b>10% in bonus coins</b> automatically on approval!
+        <!-- Step indicator -->
+        <div class="dep-steps">
+          <div class="dep-step active" id="dstep1"><span class="ds-num">1</span><span class="ds-lbl">Amount</span></div>
+          <div class="dep-step-line"></div>
+          <div class="dep-step" id="dstep2"><span class="ds-num">2</span><span class="ds-lbl">Method</span></div>
+          <div class="dep-step-line"></div>
+          <div class="dep-step" id="dstep3"><span class="ds-num">3</span><span class="ds-lbl">Confirm</span></div>
         </div>
-        <div class="mf">
-          <label>Amount</label>
-          <input type="number" id="depAmt" placeholder="Enter amount" oninput="onDepAmtChange()">
+
+        <!-- Bonus banner -->
+        <div class="dep-bonus-bar">
+          <span>🎁</span>
+          <span>Every deposit earns <b>10% bonus coins</b> — credited automatically on approval</span>
         </div>
-        <div style="font-size:.72rem;color:var(--muted);margin-top:-.3rem">
-          ≈ <span id="depUSD">$0.00</span> USD
+
+        <!-- Amount input with quick picks -->
+        <div class="dep-amt-block">
+          <label class="dep-field-lbl">Enter Deposit Amount</label>
+          <div class="dep-amt-row">
+            <div class="dep-currency-tag" id="depCurrTag">KSh</div>
+            <input type="number" id="depAmt" class="dep-big-inp" placeholder="0" oninput="onDepAmtChange()" inputmode="numeric">
+          </div>
+          <div class="dep-usd-row">
+            <span class="dep-usd-lbl">🎁 <span id="depUSD"></span></span>
+            <span class="dep-min-lbl">Min: <span id="minDepTxt" style="color:var(--green)">KSh 65</span></span>
+          </div>
+          <!-- Quick amount pills -->
+          <div class="dep-quick-amts" id="depQuickAmts">
+            <button class="dep-qa" onclick="setDepAmt(100)">100</button>
+            <button class="dep-qa" onclick="setDepAmt(500)">500</button>
+            <button class="dep-qa" onclick="setDepAmt(1000)">1,000</button>
+            <button class="dep-qa" onclick="setDepAmt(2500)">2,500</button>
+            <button class="dep-qa" onclick="setDepAmt(5000)">5,000</button>
+          </div>
         </div>
-        <div style="font-size:.72rem;color:var(--muted);font-family:'Cinzel',serif;letter-spacing:1px;text-transform:uppercase;margin-bottom:.3rem">Select Payment Method</div>
-        <div class="dep-method-grid">
-          <div class="dep-method sel" id="dm-mpesa"    onclick="selMethod('mpesa')"><span class="dm-icon">📱</span>M-Pesa</div>
-          <div class="dep-method"    id="dm-airtel"   onclick="selMethod('airtel')"><span class="dm-icon">📲</span>Airtel Money</div>
-          <div class="dep-method"    id="dm-card"     onclick="selMethod('card')"><span class="dm-icon">💳</span>Card</div>
-          <div class="dep-method"    id="dm-bitcoin"  onclick="selMethod('bitcoin')"><span class="dm-icon">₿</span>Bitcoin</div>
-          <div class="dep-method"    id="dm-ethereum" onclick="selMethod('ethereum')"><span class="dm-icon">Ξ</span>Ethereum</div>
-          <div class="dep-method"    id="dm-bank"     onclick="selMethod('bank')"><span class="dm-icon">🏦</span>Bank Transfer</div>
+
+        <!-- Payment method grid -->
+        <div>
+          <label class="dep-field-lbl">Payment Method</label>
+          <div class="dep-method-grid">
+            <div class="dep-method sel" id="dm-mpesa"    onclick="selMethod('mpesa')"><span class="dm-icon">📱</span>M-Pesa</div>
+            <div class="dep-method"    id="dm-airtel"   onclick="selMethod('airtel')"><span class="dm-icon">📲</span>Airtel Money</div>
+            <div class="dep-method"    id="dm-card"     onclick="selMethod('card')"><span class="dm-icon">💳</span>Card</div>
+            <div class="dep-method"    id="dm-bitcoin"  onclick="selMethod('bitcoin')"><span class="dm-icon">₿</span>Bitcoin</div>
+            <div class="dep-method"    id="dm-ethereum" onclick="selMethod('ethereum')"><span class="dm-icon">Ξ</span>Ethereum</div>
+            <div class="dep-method"    id="dm-bank"     onclick="selMethod('bank')"><span class="dm-icon">🏦</span>Bank Transfer</div>
+          </div>
         </div>
+
+        <!-- Payment details (rendered by game.js) -->
         <div id="depDetails"></div>
-        <button class="mbtn mbtn-green" id="depSubmitBtn" onclick="submitDeposit()" style="display:none">
-          Submit Deposit Request →
-        </button>
+
+        <!-- Submit — always visible once method selected, greyed if no amount -->
+        <div class="dep-submit-wrap">
+          <button class="mbtn mbtn-green dep-submit-big" id="depSubmitBtn" onclick="submitDeposit()" disabled>
+            <span id="depSubmitLabel">Enter amount to continue</span>
+          </button>
+          <div class="dep-submit-note">
+            🔒 Secure · Admin-reviewed · Credited within minutes
+          </div>
+        </div>
       </div>
 
       <!-- WITHDRAW -->
-      <div id="wWit" style="display:none">
-        <div class="min-note">Real balance available: <span id="witAvail" style="color:var(--gold)">◈0.00</span></div>
+      <div id="wWit" style="display:none;">
+        <div class="min-note">Real balance available: <span id="witAvail" style="color:var(--gold)">KSh 0.00</span></div>
         <div style="background:rgba(255,68,85,.06);border:1px solid rgba(255,68,85,.18);border-radius:8px;padding:.5rem .75rem;font-size:.72rem;color:var(--red);margin-bottom:.5rem">
           ⚠️ Only <b>real balance</b> can be withdrawn. Convert bonus coins first!
         </div>
         <div class="mf">
-          <label>Amount (from real balance)</label>
-          <input type="number" id="witAmt" placeholder="Enter amount">
+          <label>Amount in KSh (from real balance)</label>
+          <input type="number" id="witAmt" placeholder="e.g. 500">
         </div>
         <div class="mf">
           <label>Phone / Account</label>
@@ -430,12 +495,12 @@
       <div class="vip-sec">
         <div class="vip-row">
           <span class="vip-nm" id="vipName">🥉 Bronze</span>
-          <span style="font-size:.68rem;color:var(--muted)" id="vipNextLbl">◈5,000 for Silver</span>
+          <span style="font-size:.68rem;color:var(--muted)" id="vipNextLbl">KSh 5,000 for Silver</span>
         </div>
         <div class="vip-pw"><div class="vip-pb" id="vipBar" style="width:0%"></div></div>
         <div class="vip-labs">
-          <span>◈<span id="vipWagered">0</span> wagered</span>
-          <span id="vipNextAmt">Silver at ◈5,000</span>
+          <span>KSh <span id="vipWagered">0</span> wagered</span>
+          <span id="vipNextAmt">Silver at KSh 5,000</span>
         </div>
       </div>
       <div class="agrid" id="achGrid"></div>
