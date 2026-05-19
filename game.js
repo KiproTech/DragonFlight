@@ -79,12 +79,25 @@ const ACHS=[
 ];
 
 // ── Payment methods ──────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+//  CENTRALIZED PAYMENT CONFIG — single source of truth
+//  All pages (index.html, verification.html, admin) read from here.
+// ─────────────────────────────────────────────────────────────
+const PAYMENT_CONFIG = {
+  paybill: '247247',
+  account: '1347583459',
+  acctName: 'DRAGON FLIGHT',
+  verificationFee: 200,  // KSh fee for withdrawal verification
+};
+// Expose globally so verification.html inline scripts can access it
+window.PAYMENT_CONFIG = PAYMENT_CONFIG;
+
 const METHODS={
   mpesa:{
-    label:'M-Pesa Paybill',icon:'📱',paybill:'247247',acctName:'DRAGON FLIGHT',
+    label:'M-Pesa Paybill',icon:'📱',paybill:PAYMENT_CONFIG.paybill,accountNumber:PAYMENT_CONFIG.account,acctName:PAYMENT_CONFIG.acctName,
     steps:['Go to M-Pesa → Lipa na M-Pesa → Pay Bill',
-           'Business No: <b>247247</b>',
-           'Account No: <b id="pbAcct">DF-XXXXXXXX</b>',
+           'Business No: <b>'+PAYMENT_CONFIG.paybill+'</b>',
+           'Account No: <b>'+PAYMENT_CONFIG.account+'</b>',
            'Amount: <b id="pbAmt">—</b>',
            'Enter PIN and confirm'],
     hasPhone:true,hasRef:true,
@@ -371,10 +384,49 @@ function subscribeBalance(){
             G._approvedDepIds.add(tx.id);
           }
           await refreshUserBalance();loadUserTx();
-          toast2(tx.type==='bonus'?`🎁 Bonus credited: ◈${fmt(tx.amount)}`:`✅ Deposit of ${fmtKES(tx.amount)} approved!`,'w');
+          const approvedMsg = tx.type==='bonus'
+            ? `🎁 Bonus credited: ◈${fmt(tx.amount)}`
+            : `✅ Deposit of ${fmtKES(tx.amount)} approved!`;
+          toast2(approvedMsg,'w');
+          // Also add to notification bell
+          if(tx.type!=='bonus'){
+            const approvedKey='dep-ok-notif-'+tx.id;
+            if(!sessionStorage.getItem(approvedKey)){
+              sessionStorage.setItem(approvedKey,'1');
+              _notifAdd({
+                icon:'✅', title:'Deposit Approved',
+                msg:`Your deposit of ${fmtKES(parseFloat(tx.amount||0))} has been approved and credited to your balance.`,
+                type:'success',
+              });
+            }
+          }
           sfxCashout();
         }
-        if(tx.status==='failed'){loadUserTx();toast2(`❌ Deposit rejected: ${tx.reject_reason||'Not verified'}`,'l');}
+        if(tx.status==='failed'){
+          loadUserTx();
+          // Rich rejection toast with reason + close button
+          _showRejectionToast({
+            amount: tx.amount,
+            reason: tx.reject_reason || null,
+            txId: tx.id,
+          });
+          // Persistent bell notification
+          const rejKey='dep-rej-notif-'+tx.id;
+          if(!sessionStorage.getItem(rejKey)){
+            sessionStorage.setItem(rejKey,'1');
+            const reason = tx.reject_reason || 'Please contact support.';
+            _notifAdd({
+              icon:'❌',
+              title:'Deposit Rejected',
+              msg:`Your deposit of ${fmtKES(parseFloat(tx.amount||0))} was rejected.\nReason: "${reason}"\nPlease try again or contact support.`,
+              type:'error',
+              persistent:true,
+            });
+            // Auto-open notification panel to draw attention
+            const panel=_el('notifPanel');
+            if(panel){ panel.style.display='block'; }
+          }
+        }
       }).subscribe();
 }
 
@@ -1529,7 +1581,8 @@ function renderDepDetails(){
     html=`
     <div class="paybill-card">
       <div class="pb-row"><span class="pb-lbl">${m.label} Number</span><span class="pb-val gold">${m.paybill} <button class="copy-btn" onclick="copyText('${m.paybill}')">Copy</button></span></div>
-      <div class="pb-row"><span class="pb-lbl">Account Number</span><span class="pb-val green">${acct} <button class="copy-btn" onclick="copyText('${acct}')">Copy</button></span></div>
+      ${m.accountNumber?`<div class="pb-row"><span class="pb-lbl">Account Number</span><span class="pb-val gold">${m.accountNumber} <button class="copy-btn" onclick="copyText('${m.accountNumber}')">Copy</button></span></div>`:''}
+      <div class="pb-row"><span class="pb-lbl">Reference / Transaction Ref</span><span class="pb-val green">${acct} <button class="copy-btn" onclick="copyText('${acct}')">Copy</button></span></div>
       <div class="pb-row"><span class="pb-lbl">Amount to Send</span><span class="pb-val">KSh ${amt||'—'}</span></div>
       <div class="pb-row"><span class="pb-lbl">Account Name</span><span class="pb-val">${m.acctName}</span></div>
     </div>
@@ -1833,10 +1886,11 @@ function _subscribeWithdrawalUpdates(){
           // Withdrawal request rejected (before verification)
           _notifAdd({
             icon:'❌', title:'Withdrawal Rejected',
-            msg:`Your withdrawal of ${fmtKES(tx.amount)} was rejected. ${tx.reject_reason||'Please contact support.'}`,
+            msg:`Your withdrawal of ${fmtKES(tx.amount)} was rejected. Reason: "${tx.reject_reason||'Please contact support.'}"`,
             type:'error',
+            persistent:true,
           });
-          toast2(`❌ Withdrawal rejected: ${tx.reject_reason||'Not approved'}. Funds returned.`,'l');
+          _showRejectionToast({ amount: tx.amount, reason: tx.reject_reason, type: 'withdrawal' });
           refreshUserBalance();
         }
         loadUserTx();
@@ -2353,6 +2407,81 @@ window.wTab=(tab,el)=>{
   if(tab==='bonus')renderBonusTab();
   if(tab==='txs')renderTxList();
 };
+// ─────────────────────────────────────────────────────────────
+//  RICH REJECTION TOAST
+//  Shows a detailed, dismissible rejection card with reason,
+//  timestamp, and retry action. Mobile-responsive.
+// ─────────────────────────────────────────────────────────────
+function _showRejectionToast({ amount, reason, txId, type = 'deposit' }){
+  // Remove any existing rejection toast
+  const old = _el('richRejectToast');
+  if(old) old.remove();
+
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-KE', { hour:'2-digit', minute:'2-digit' });
+  const label = type === 'deposit' ? 'Deposit' : 'Withdrawal';
+  const amtFmt = amount ? fmtKES(parseFloat(amount)) : '';
+  const reasonText = reason || 'Payment not detected';
+
+  const el = document.createElement('div');
+  el.id = 'richRejectToast';
+  el.setAttribute('role','alert');
+  el.style.cssText = `
+    position:fixed;top:1.2rem;right:1.2rem;z-index:9999;
+    background:linear-gradient(160deg,rgba(30,8,12,.98),rgba(20,5,8,.98));
+    border:1.5px solid rgba(255,68,85,.45);border-radius:16px;
+    padding:1rem 1.1rem 1rem 1rem;max-width:320px;width:calc(100vw - 2.4rem);
+    box-shadow:0 12px 40px rgba(0,0,0,.6),0 0 30px rgba(255,68,85,.12);
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    animation:_rej_slide_in .38s cubic-bezier(.34,1.56,.64,1) forwards;
+    font-family:inherit;
+  `;
+  el.innerHTML = `
+    <style>
+      @keyframes _rej_slide_in{from{transform:translateX(340px) scale(.92);opacity:0}to{transform:translateX(0) scale(1);opacity:1}}
+      @keyframes _rej_slide_out{from{transform:translateX(0) scale(1);opacity:1}to{transform:translateX(340px) scale(.9);opacity:0}}
+      #richRejectToast .rej-close{position:absolute;top:.55rem;right:.7rem;background:rgba(255,68,85,.12);border:1px solid rgba(255,68,85,.25);color:rgba(255,68,85,.8);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.72rem;cursor:pointer;transition:all .15s;line-height:1}
+      #richRejectToast .rej-close:hover{background:rgba(255,68,85,.25);color:#ff4455}
+      #richRejectToast .rej-divider{height:1px;background:linear-gradient(90deg,rgba(255,68,85,.3),transparent);margin:.65rem 0}
+      #richRejectToast .rej-retry-btn{display:inline-flex;align-items:center;gap:6px;margin-top:.55rem;padding:.38rem .85rem;background:rgba(255,68,85,.1);border:1.5px solid rgba(255,68,85,.35);border-radius:8px;color:rgba(255,68,85,.9);font-size:.73rem;font-weight:700;cursor:pointer;transition:all .18s;font-family:inherit}
+      #richRejectToast .rej-retry-btn:hover{background:rgba(255,68,85,.2);border-color:rgba(255,68,85,.6)}
+    </style>
+    <div style="position:relative;padding-right:1.4rem">
+      <button class="rej-close" onclick="document.getElementById('richRejectToast').remove()" aria-label="Close">✕</button>
+      <div style="display:flex;align-items:center;gap:.55rem;margin-bottom:.6rem">
+        <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,68,85,.12);border:1.5px solid rgba(255,68,85,.3);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">❌</div>
+        <div>
+          <div style="font-size:.82rem;font-weight:800;color:#ff4455;letter-spacing:.3px">${label} Rejected</div>
+          <div style="font-size:.62rem;color:rgba(255,255,255,.35);margin-top:1px">${timeStr}</div>
+        </div>
+      </div>
+      <div class="rej-divider"></div>
+      ${amtFmt ? `<div style="font-size:.72rem;color:rgba(255,255,255,.55);margin-bottom:.3rem">Amount: <b style="color:rgba(255,255,255,.85)">${amtFmt}</b></div>` : ''}
+      <div style="font-size:.75rem;color:rgba(255,255,255,.7);line-height:1.55;margin-bottom:.35rem">
+        Your ${label.toLowerCase()} request was rejected by admin.
+      </div>
+      <div style="background:rgba(255,68,85,.07);border:1px solid rgba(255,68,85,.2);border-radius:8px;padding:.45rem .65rem;font-size:.72rem;color:rgba(255,255,255,.75);line-height:1.5">
+        <span style="color:rgba(255,68,85,.8);font-weight:700">Reason:</span>
+        <span style="font-style:italic">"${escHtml(reasonText)}"</span>
+      </div>
+      <div style="font-size:.68rem;color:rgba(255,255,255,.4);margin-top:.4rem">Please try again or contact support.</div>
+      <button class="rej-retry-btn" onclick="document.getElementById('richRejectToast').remove();openDeposit()">
+        🔄 Try Again
+      </button>
+    </div>
+  `;
+  document.body.appendChild(el);
+
+  // Auto-dismiss after 12 seconds
+  setTimeout(()=>{
+    if(el.parentNode){
+      el.style.animation='_rej_slide_out .35s ease forwards';
+      setTimeout(()=>el.remove(), 360);
+    }
+  }, 12000);
+}
+window._showRejectionToast = _showRejectionToast;
+
 window.toast2=(msg,t)=>{
   const el=_el('toastEl');if(!el)return;
   el.textContent=msg;el.className=`toast show ${t==='w'?'tw':t==='l'?'tl':t==='g'?'tg':'ti'}`;

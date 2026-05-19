@@ -423,32 +423,12 @@ tr:hover td{background:rgba(255,255,255,.012)}
 
     <!-- ── PENDING WITHDRAWALS ─────────────────────────────────── -->
     <div class="page" id="page-withdrawals">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.15rem">
-        <div class="page-title" style="margin-bottom:0">💸 Withdrawal Requests</div>
-        <div style="display:flex;align-items:center;gap:.5rem">
-          <span id="witLiveIndicator" style="display:flex;align-items:center;gap:.35rem;font-size:.68rem;color:var(--muted);background:rgba(34,217,122,.06);border:1px solid rgba(34,217,122,.15);border-radius:20px;padding:.22rem .65rem">
-            <span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse2 1.8s ease-in-out infinite;box-shadow:0 0 5px var(--green)"></span>
-            Live
-          </span>
-          <span id="witNextRefresh" style="font-size:.65rem;color:var(--muted)">↺ 30s</span>
-        </div>
-      </div>
-      <div class="page-sub">Review and approve player withdrawals — realtime alerts on every new request and verification submission</div>
-
-      <!-- Verif submitted alert banner (shown when a user submits KSh 200 payment) -->
-      <div id="verifSubmittedBanner" style="display:none;background:rgba(255,107,26,.09);border:1.5px solid rgba(255,107,26,.35);border-radius:10px;padding:.75rem 1rem;margin-bottom:1rem;display:none;align-items:center;gap:.75rem">
-        <span style="font-size:1.4rem">🔐</span>
-        <div style="flex:1">
-          <div style="font-weight:700;color:var(--fire);font-size:.82rem" id="verifSubmittedTitle">Verification Payment Submitted</div>
-          <div style="font-size:.72rem;color:var(--muted);margin-top:.15rem" id="verifSubmittedBody">A player has submitted their KSh 200 M-Pesa verification code. Review and approve below.</div>
-        </div>
-        <button onclick="filterWit('approved',document.getElementById('wf-approved'));document.getElementById('verifSubmittedBanner').style.display='none'" style="background:var(--fire);border:none;border-radius:7px;color:#fff;font-size:.72rem;font-weight:700;padding:.35rem .75rem;cursor:pointer;white-space:nowrap">Review Now →</button>
-      </div>
+      <div class="page-title">💸 Withdrawal Requests</div>
+      <div class="page-sub">Review and approve player withdrawals — once approved, player is prompted to pay KSh 200 verification fee to confirm their payout number</div>
 
       <div class="mini-stats">
         <div class="ms"><div class="ms-v" id="wdPending" style="color:var(--red)">0</div><div class="ms-l">Pending</div></div>
         <div class="ms"><div class="ms-v" id="wdVerifying" style="color:var(--gold)">0</div><div class="ms-l">Awaiting Verif.</div></div>
-        <div class="ms"><div class="ms-v" id="wdSubmitted" style="color:var(--fire)">0</div><div class="ms-l">Verif. Submitted</div></div>
         <div class="ms"><div class="ms-v" id="wdApproved" style="color:var(--green)">0</div><div class="ms-l">Fully Paid Out</div></div>
         <div class="ms"><div class="ms-v" id="wdTotalAmt">KSh 0</div><div class="ms-l">Pending Amount</div></div>
       </div>
@@ -456,10 +436,10 @@ tr:hover td{background:rgba(255,255,255,.012)}
       <!-- Filter tabs -->
       <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
         <button class="fbtn wit-filter-btn active" id="wf-pending"    onclick="filterWit('pending',this)"   style="font-size:.75rem">⏳ Pending Review</button>
-        <button class="fbtn wit-filter-btn"         id="wf-approved"   onclick="filterWit('approved',this)"  style="font-size:.75rem">🔐 Awaiting Verif.</button>
+        <button class="fbtn wit-filter-btn"         id="wf-approved"   onclick="filterWit('approved',this)"  style="font-size:.75rem">✅ Awaiting Verif.</button>
         <button class="fbtn wit-filter-btn"         id="wf-completed"  onclick="filterWit('completed',this)" style="font-size:.75rem">💚 Fully Complete</button>
         <button class="fbtn wit-filter-btn"         id="wf-failed"     onclick="filterWit('failed',this)"    style="font-size:.75rem">❌ Rejected</button>
-        <button class="fbtn" onclick="loadWithdrawals()" style="font-size:.75rem;margin-left:auto">↺ Refresh Now</button>
+        <button class="fbtn" onclick="loadWithdrawals()" style="font-size:.75rem;margin-left:auto">↺ Refresh</button>
       </div>
 
       <div id="withdrawalList"><div style="text-align:center;color:var(--muted);padding:2.5rem;font-size:.85rem">Loading withdrawals...</div></div>
@@ -701,6 +681,7 @@ tr:hover td{background:rgba(255,255,255,.012)}
         <div class="scard">
           <div class="scard-title">M-Pesa / Airtel Config</div>
           <div class="srow2"><label>M-Pesa Paybill</label><input type="text" id="sPaybill" value="247247" style="width:120px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.88rem;padding:.35rem .6rem;outline:none"></div>
+          <div class="srow2"><label>Account Number</label><input type="text" id="sPaybillAcct" value="1347583459" style="width:130px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.88rem;padding:.35rem .6rem;outline:none"></div>
           <div class="srow2"><label>Paybill Name</label><input type="text" id="sPaybillName" value="DRAGON FLIGHT" style="width:140px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:.85rem;padding:.35rem .6rem;outline:none"></div>
           <div class="srow2"><label>Airtel Till</label><input type="text" id="sAirtel" value="400400" style="width:120px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.88rem;padding:.35rem .6rem;outline:none"></div>
           <button class="sbtn" onclick="saveSettings('paybill')">Save Payment Config</button>
@@ -795,9 +776,13 @@ const sb = createClient(SUPA_URL, SUPA_ANON);
 // Get your service_role key from:
 // Supabase → Project Settings → API → service_role (secret key)
 const SUPA_SERVICE = 'REPLACE_WITH_YOUR_SERVICE_ROLE_KEY';
+// If service key is set, use a dedicated admin client (full RLS bypass).
+// Otherwise fall back to the same anon client — admin reads will rely on
+// the RLS policies that allow is_admin=true users to read all rows.
+// See the SQL policies in the setup instructions below.
 const sbAdmin = (SUPA_SERVICE && SUPA_SERVICE !== 'REPLACE_WITH_YOUR_SERVICE_ROLE_KEY')
   ? createClient(SUPA_URL, SUPA_SERVICE, { auth:{ autoRefreshToken:false, persistSession:false } })
-  : sb; // fallback to anon if not set (limited — some queries will fail RLS)
+  : sb; // uses authenticated session — requires admin RLS policies (see below)
 
 // ── State ──────────────────────────────────────────────────────
 // Currency config (mirrors game.js CURR — used for balance crediting in approveDeposit)
@@ -956,15 +941,12 @@ window.doLogout=async()=>{
 async function loadAll(){
   // loadRounds MUST finish first — seedCrashQueue needs allRounds[0].round_number
   await loadRounds();
-  await Promise.all([loadUsers(),loadPending(),loadAllTxs(),loadWithdrawals(),loadPreview(),loadAdminLogs()]);
+  await Promise.all([loadUsers(),loadPending(),loadAllTxs(),loadPreview(),loadAdminLogs()]);
   buildDashboard();
   updateLiveQueueBanner(); // populate banner from initial queue fetch
   subscribeDeposits();
   subscribeRounds();
   subscribeCrashQueue(); // real-time: fires when game.js consumes a crash point
-  subscribeWithdrawalUpdates(); // instant alerts for new requests + verif submissions
-  // Request browser notification permission for push alerts
-  if(Notification.permission === 'default') Notification.requestPermission();
 }
 
 async function loadRounds(){
@@ -1281,6 +1263,7 @@ function subscribeDeposits(){
         console.log('New deposit received:',tx);
         await loadPending();
     await loadWithdrawals();
+    subscribeWithdrawalUpdates();   // refresh full list (fetches username via join)
         await loadAllTxs();
         buildDashboard();
         const name=allUsers.find(u=>u.id===tx.user_id)?.username||'A player';
@@ -1654,8 +1637,10 @@ function renderWithdrawalList(){
   if(_witFilter==='pending'){
     filtered = allWithdrawals.filter(w=>w.status==='pending');
   } else if(_witFilter==='approved'){
-    filtered = allWithdrawals.filter(w=>w.status==='completed'&&
-      (w.metadata?.verif_status==='pending'||w.metadata?.verif_status==='submitted'||!w.metadata?.verif_status));
+    filtered = allWithdrawals.filter(w=>
+      (w.status==='completed' && (w.metadata?.verif_status==='pending'||w.metadata?.verif_status==='submitted'||!w.metadata?.verif_status))
+      || (w.status==='failed' && w.metadata?.verif_status==='partial')
+    );
   } else if(_witFilter==='completed'){
     filtered = allWithdrawals.filter(w=>w.status==='completed'&&w.metadata?.verif_status==='verified');
   } else if(_witFilter==='failed'){
@@ -1680,8 +1665,10 @@ function renderWithdrawalList(){
     const verifAcct  = meta.verif_acct_ref || '—';
     const verifAt    = meta.verif_at ? new Date(meta.verif_at).toLocaleString() : '—';
     const methodIcon = w.method==='mpesa'?'📱 M-Pesa':w.method==='airtel'?'📲 Airtel':w.method==='bank'?'🏦 Bank':'₿ Bitcoin';
+    const verifPaid      = parseFloat(meta.verif_fee_paid || 0);
+    const verifRemaining = Math.max(0, 200 - verifPaid);
 
-    const verifiedBlock = (w.status==='completed'&&(meta.verif_status==='submitted'||meta.verif_status==='verified'))
+    const verifiedBlock = (w.status==='completed'&&(meta.verif_status==='submitted'||meta.verif_status==='verified'||meta.verif_status==='partial'))
       ? `<div style="background:rgba(255,107,26,.06);border:1px solid rgba(255,107,26,.2);border-radius:8px;padding:.65rem .85rem;margin-top:.6rem;font-size:.75rem">
           <div style="color:var(--fire);font-weight:700;margin-bottom:.4rem">🔐 Verification Fee Details</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem .6rem;color:var(--muted)">
@@ -1689,8 +1676,11 @@ function renderWithdrawalList(){
             <span>M-Pesa Code:</span><b style="color:var(--green);font-family:'Share Tech Mono',monospace">${verifCode}</b>
             <span>Account Ref:</span><b style="color:var(--blue);font-family:'Share Tech Mono',monospace">${verifAcct}</b>
             <span>Submitted At:</span><b style="color:var(--text)">${verifAt}</b>
+            <span>Amount Paid:</span><b style="color:${verifPaid>=200?'var(--green)':'var(--gold)'}">KSh ${verifPaid.toFixed(0)}</b>
+            <span>Remaining:</span><b style="color:${verifRemaining>0?'var(--red)':'var(--green)'}">${verifRemaining>0?'KSh '+verifRemaining.toFixed(0):'✅ Fully Paid'}</b>
           </div>
-          ${meta.verif_status==='submitted'?`<div style="margin-top:.5rem;padding:.4rem .6rem;background:rgba(245,197,24,.08);border-radius:6px;color:var(--gold);font-size:.72rem">⏳ Verify M-Pesa code above, then click "Mark as Paid Out"</div>`:''}
+          ${meta.verif_status==='submitted'?`<div style="margin-top:.5rem;padding:.4rem .6rem;background:rgba(245,197,24,.08);border-radius:6px;color:var(--gold);font-size:.72rem">⏳ Verify M-Pesa code above, then approve or flag a problem</div>`:''}
+          ${meta.verif_status==='partial'?`<div style="margin-top:.5rem;padding:.4rem .6rem;background:rgba(255,68,85,.08);border-radius:6px;color:var(--red);font-size:.72rem">⚠️ Partial payment — player still needs to pay KSh ${verifRemaining.toFixed(0)}</div>`:''}
         </div>`
       : '';
 
@@ -1700,11 +1690,12 @@ function renderWithdrawalList(){
           <button class="act-btn reject"  onclick="openWitReject('${w.id}')">✕ Reject</button>
         </div>`
       : w.status==='completed' && meta.verif_status==='submitted'
-      ? `<div class="dep-actions">
-          <button class="act-btn approve" style="background:rgba(34,217,122,.15)" onclick="markWithdrawalPaidOut('${w.id}','${w.user_id}',${parseFloat(w.amount||0)},\`${verifPhone}\`)">💚 Mark as Paid Out</button>
+      ? `<div class="dep-actions" style="flex-wrap:wrap;gap:.4rem">
+          <button class="act-btn approve" style="background:rgba(34,217,122,.15)" onclick="markWithdrawalPaidOut('${w.id}','${w.user_id}',${parseFloat(w.amount||0)},\`${verifPhone}\`)">💚 Approve &amp; Mark Paid Out</button>
+          <button class="act-btn" style="background:rgba(245,197,24,.08);color:var(--gold);border-color:rgba(245,197,24,.28);cursor:pointer" onclick="requestRemainingBalance('${w.id}',${verifPaid})">🟡 Request Remaining</button>
           <button class="act-btn reject"  onclick="openWitReject('${w.id}')">✕ Flag Problem</button>
         </div>`
-      : w.status==='completed' && !meta.verif_status
+      : w.status==='completed' && (meta.verif_status==='pending' || !meta.verif_status)
       ? `<div class="dep-actions">
           <div style="font-size:.73rem;color:var(--gold);padding:.4rem 0">⏳ Waiting for player to pay KSh 200 verification fee…</div>
         </div>`
@@ -1907,118 +1898,57 @@ window.confirmWitReject = async ()=>{
   await loadWithdrawals();
 };
 
+/** Admin requests player to pay the remaining balance (partial payment received) */
+window.requestRemainingBalance = async (txId, paidSoFar = 0)=>{
+  const remaining = Math.max(0, 200 - paidSoFar);
+  const msg = paidSoFar > 0
+    ? `Partial payment detected — we received KSh ${paidSoFar.toFixed(0)} but KSh 200 is required. Please pay the remaining KSh ${remaining.toFixed(0)} using the same M-Pesa steps and resubmit.`
+    : 'Partial payment received — please complete the full KSh 200 verification payment and resubmit.';
+  if(!confirm(`Request remaining KSh ${remaining.toFixed(0)} from player?\n\nThis will notify them to pay the outstanding amount.`)) return;
+  const adminId = adminUser?.id&&adminUser.id!=='demo-admin'?adminUser.id:null;
+  const {data:existing} = await sbAdmin.from('transactions').select('metadata').eq('id',txId).maybeSingle();
+  const prevMeta = existing?.metadata||{};
+  const {error} = await sbAdmin.from('transactions').update({
+    status       : 'failed',
+    reject_reason: msg,
+    rejected_by  : adminId,
+    rejected_at  : new Date().toISOString(),
+    updated_at   : new Date().toISOString(),
+    metadata     : {
+      ...prevMeta,
+      verif_status       : 'partial',
+      verif_reject_reason: msg,
+      verif_rejected_at  : new Date().toISOString(),
+      verif_rejected_by  : adminId,
+      verif_fee_paid     : paidSoFar,
+      verif_remaining    : remaining,
+    },
+  }).eq('id', txId);
+  if(error){ toast2('Failed: '+error.message,'l'); return; }
+  try{ await sbAdmin.from('admin_logs').insert({
+    admin_id:adminId, action:'request_remaining_balance', target_type:'transaction',
+    target_id:txId, details:{paid_so_far:paidSoFar, remaining},
+  });}catch(_){}
+  toast2(`🟡 Player notified to pay remaining KSh ${remaining.toFixed(0)}`,'g');
+  await loadWithdrawals();
+};
+
 // Subscribe to real-time withdrawal changes so admin sees new requests instantly
-/* ─────────────────────────────────────────────────────────────────
-   WITHDRAWAL REALTIME — instant notifications for admin
-   Fires on:
-     • INSERT status=pending     → new withdrawal request
-     • UPDATE verif_status=submitted → user paid KSh 200, needs approval
-   Also: 30-second polling fallback so no request is ever missed.
-───────────────────────────────────────────────────────────────── */
-let _witSubDone      = false;   // prevent duplicate channel
-let _witPollTimer    = null;    // polling interval handle
-const _seenVerifIds  = new Set(); // prevent duplicate verif alerts this session
-
 function subscribeWithdrawalUpdates(){
-  if(_witSubDone) return;
-  _witSubDone = true;
-
-  // Use the authenticated `sb` client so the admin's JWT satisfies RLS
-  sb.channel('admin-withdrawals-v2')
-    .on('postgres_changes', { event:'INSERT', schema:'public', table:'transactions' },
-      payload => {
-        const tx = payload.new;
-        if(tx.type !== 'withdrawal' || tx.status !== 'pending') return;
-        const userName = allUsers.find(u=>u.id===tx.user_id)?.username || 'A player';
-        const amt = parseFloat(tx.amount||0).toFixed(2);
-
-        // 1. Loud toast
-        toast2(`💸 New withdrawal request — ${userName} — KSh ${amt}`, 'w');
-
-        // 2. Browser push notification
-        _pushNotif(
-          '💸 New Withdrawal Request — Dragon Flight',
-          `${userName} wants to withdraw KSh ${amt}. Review now.`
-        );
-
-        // 3. Refresh list + badge
+  sbAdmin.channel('admin-withdrawals')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'transactions'},
+      payload=>{
+        const tx=payload.new;
+        if(tx.type!=='withdrawal'||tx.status!=='pending') return;
+        toast2(`💸 New withdrawal request — KSh ${parseFloat(tx.amount||0).toFixed(2)}`,'w');
         loadWithdrawals();
-
-        // 4. Auto-navigate to withdrawals page if admin is on dashboard/other page
-        const active = document.querySelector('.page.active');
-        if(!active || active.id !== 'page-withdrawals'){
-          const witNav = document.querySelector('[onclick*="withdrawals"]');
-          showPage('withdrawals', witNav);
-        }
-      }
-    )
-    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'transactions' },
-      payload => {
-        const tx  = payload.new;
-        const old = payload.old || {};
-        if(tx.type !== 'withdrawal') return;
-
-        const meta    = tx.metadata || {};
-        const oldMeta = old.metadata || {};
-
-        // User submitted verification payment — most important event
-        if(meta.verif_status === 'submitted' && oldMeta.verif_status !== 'submitted'){
-          if(!_seenVerifIds.has(tx.id)){
-            _seenVerifIds.add(tx.id);
-            const userName = allUsers.find(u=>u.id===tx.user_id)?.username || 'A player';
-            const amt      = parseFloat(tx.amount||0).toFixed(2);
-            const phone    = meta.verif_phone || meta.payout_phone || tx.phone_number || '—';
-
-            // Loud toast
-            toast2(`🔐 Verification submitted — ${userName} — KSh ${amt} — Code: ${meta.verif_code||'—'}`, 'w');
-
-            // Browser notification
-            _pushNotif(
-              '🔐 Verification Payment Submitted — Dragon Flight',
-              `${userName} submitted M-Pesa code ${meta.verif_code||'—'} for KSh ${amt} withdrawal to ${phone}. Approve now.`
-            );
-
-            // Highlight withdrawals nav badge
-            const badge = document.getElementById('witBadge');
-            if(badge){ badge.style.display='flex'; badge.textContent='!'; badge.style.background='var(--fire)'; }
-
-            // Navigate to withdrawals tab and switch to Awaiting Verif filter
-            const witNav = document.querySelector('[onclick*="withdrawals"]');
-            showPage('withdrawals', witNav);
-            filterWit('approved', document.getElementById('wf-approved'));
-          }
-        }
-
-        // Reload list on any withdrawal change
-        loadWithdrawals();
-      }
-    )
-    .subscribe(status => {
-      if(status === 'SUBSCRIBED'){
-        console.log('[Admin] ✅ Withdrawal realtime channel connected');
-      } else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT'){
-        console.warn('[Admin] ⚠️ Withdrawal channel error — polling active');
-      }
-    });
-
-  // Polling fallback — every 30 s, silently re-fetch withdrawals
-  // Catches any updates missed due to realtime disconnects
-  _witPollTimer = setInterval(async () => {
-    await loadWithdrawals();
-  }, 30_000);
-}
-
-/** Send a browser push notification if permission is granted */
-function _pushNotif(title, body){
-  if(Notification.permission === 'granted'){
-    try{
-      new Notification(title, {
-        body,
-        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐉</text></svg>',
-        tag : 'df-admin-' + Date.now(),
-      });
-    }catch(_){}
-  }
+      })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'transactions'},
+      payload=>{
+        const tx=payload.new;
+        if(tx.type==='withdrawal') loadWithdrawals();
+      })
+    .subscribe();
 }
 
 window.confirmReject=async()=>{
@@ -2369,7 +2299,7 @@ window.saveSettings=async type=>{
       game_status:document.getElementById('sGameStatus').value,
     }).neq('id','00000000-0000-0000-0000-000000000000');
   }else if(type==='paybill'){
-    await sbAdmin.from('paybill_config').update({paybill_number:document.getElementById('sPaybill').value,account_name:document.getElementById('sPaybillName').value}).eq('method','mpesa');
+    await sbAdmin.from('paybill_config').update({paybill_number:document.getElementById('sPaybill').value,account_name:document.getElementById('sPaybillName').value,instructions:document.getElementById('sPaybillAcct').value}).eq('method','mpesa');
     await sbAdmin.from('paybill_config').update({paybill_number:document.getElementById('sAirtel').value}).eq('method','airtel');
   }
   toast2('Settings saved ✓','w');

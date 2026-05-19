@@ -621,6 +621,14 @@ const sb = createClient(
   'sb_publishable_9JwkSoI9zm2oXu6tvZDRaw_2ebdCWtE'
 );
 
+// ── Centralized Payment Config (mirrors game.js PAYMENT_CONFIG) ──
+const PAYMENT_CONFIG = {
+  paybill: '247247',
+  account: '1347583459',
+  acctName: 'DRAGON FLIGHT',
+  verificationFee: 200,
+};
+
 // ── Page state ────────────────────────────────────────────────
 const S = {
   txId        : null,
@@ -630,7 +638,7 @@ const S = {
   currency    : 'KES',
   phone       : '',
   acctRef     : '',
-  feeTotal    : 200,          // always KES 200
+  feeTotal    : PAYMENT_CONFIG.verificationFee,  // always KES 200
   feePaid     : 0,
   verifStatus : null,         // pending|submitted|verified|partial|not_detected|rejected
   submitting  : false,

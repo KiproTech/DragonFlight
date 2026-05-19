@@ -579,13 +579,13 @@
 
                 <!-- M-Pesa step card -->
                 <div style="background:rgba(0,0,0,.3);border-radius:10px;padding:.85rem 1rem">
-                  <div style="font-size:.65rem;font-weight:700;color:var(--gold);margin-bottom:.6rem;text-transform:uppercase;letter-spacing:1px;font-family:'Cinzel',serif">📱 M-Pesa Payment Steps</div>
+                  <div style="font-size:.65rem;font-weight:700;color:var(--gold);margin-bottom:.6rem;text-transform:uppercase;letter-spacing:1px;font-family:'Cinzel',serif">📱 M-Pesa Payment Instructions</div>
                   <div style="display:flex;flex-direction:column;gap:.5rem">
                     <div style="font-size:.77rem;color:var(--text)">1. Go to <b>M-Pesa → Lipa na M-Pesa → Pay Bill</b></div>
                     <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.04);border-radius:8px;padding:.45rem .65rem">
-                      <span style="font-size:.75rem;color:var(--muted)">2. Business Number:</span>
+                      <span style="font-size:.75rem;color:var(--muted)">2. Business Number (Paybill):</span>
                       <div style="display:flex;align-items:center;gap:.4rem">
-                        <b style="color:var(--gold);font-family:'Share Tech Mono',monospace;font-size:.88rem">247247</b>
+                        <b id="wvmPaybillNum" style="color:var(--gold);font-family:'Share Tech Mono',monospace;font-size:.88rem">247247</b>
                         <button onclick="copyText('247247')" style="font-size:.6rem;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:5px;color:var(--muted);padding:.15rem .45rem;cursor:pointer;transition:.15s">📋 Copy</button>
                       </div>
                     </div>
@@ -601,6 +601,9 @@
                       <b id="wvmFeeStep" style="color:var(--fire);font-family:'Share Tech Mono',monospace;font-size:.88rem">KSh 200</b>
                     </div>
                     <div style="font-size:.77rem;color:var(--text)">5. Enter your PIN and confirm payment</div>
+                  </div>
+                  <div style="margin-top:.55rem;background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.18);border-radius:7px;padding:.4rem .65rem;font-size:.68rem;color:var(--gold)">
+                    ⚠️ Paybill: <b>247247</b> · Account: <b>1347583459</b> · Amount: <b>KSh 200</b>
                   </div>
                 </div>
               </div>
