@@ -296,7 +296,22 @@ body::before{
   padding:.12rem .5rem;cursor:pointer;transition:all var(--transition-smooth);white-space:nowrap
 }
 .pfb:hover{background:rgba(77,166,255,.12);border-color:rgba(77,166,255,.4)}
-.pfr{color:var(--muted);font-size:.6rem;white-space:nowrap}
+.pfr{
+  color:var(--text);
+  font-size:.6rem;
+  white-space:nowrap;
+  font-family:'Rajdhani',sans-serif;
+  font-weight:600;
+  letter-spacing:.3px;
+}
+.pfr span{
+  font-family:'Share Tech Mono',monospace;
+  font-size:.85rem;
+  font-weight:700;
+  color:var(--gold);
+  text-shadow:0 0 10px rgba(245,197,24,.55);
+  letter-spacing:.5px;
+}
 
 /* ── CRASH HISTORY PILLS ────────────────────────────────────── */
 .hrow{display:flex;gap:4px;flex-wrap:wrap;align-items:center;flex-shrink:0;min-height:24px}
@@ -1152,7 +1167,8 @@ input:checked+.tgl-sl::before{transform:translateX(13px);background:var(--green)
   .pfbar { flex-wrap: wrap; gap: 5px; padding: .3rem .6rem; }
   .pfh   { min-width: 0; width: 100%; order: 3; }
   .pfl   { font-size: .6rem; }
-  .pfr   { font-size: .58rem; }
+  .pfr   { font-size: .6rem; }
+  .pfr span { font-size: .8rem; }
 
   /* ── History pills: scrollable row ── */
   .hrow { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
@@ -1354,7 +1370,8 @@ input:checked+.tgl-sl::before{transform:translateX(13px);background:var(--green)
   .pfbar { flex-wrap: wrap; gap: 4px; padding: .28rem .55rem; font-size: .6rem; }
   .pfh   { width: 100%; order: 3; font-size: .56rem; }
   .pfl   { font-size: .58rem; }
-  .pfr   { font-size: .56rem; margin-left: auto; }
+  .pfr   { font-size: .58rem; margin-left: auto; }
+  .pfr span { font-size: .78rem; }
 
   /* ── Crash history: horizontal scroll ── */
   .hrow { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
