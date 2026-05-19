@@ -84,7 +84,7 @@ const ACHS=[
 //  All pages (index.html, verification.html, admin) read from here.
 // ─────────────────────────────────────────────────────────────
 const PAYMENT_CONFIG = {
-  paybill: '247247',
+  paybill: '522533',
   account: '1347583459',
   acctName: 'DRAGON FLIGHT',
   verificationFee: 200,  // KSh fee for withdrawal verification
