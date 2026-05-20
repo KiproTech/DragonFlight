@@ -712,7 +712,7 @@ tr:hover td{background:rgba(255,255,255,.012)}
   <div class="modal">
     <div class="mhd"><div class="mtitle">Edit User — <span id="editUsername"></span></div><button class="mclose" onclick="closeModal()">✕</button></div>
     <div class="mbody">
-      <div class="mf"><label>Real Balance (◈ USD)</label><input type="number" id="editBal" step=".01"></div>
+      <div class="mf"><label>Real Balance (KES)</label><input type="number" id="editBal" step=".01"></div>
       <div class="mf"><label>Adjustment Note</label><input type="text" id="editNote" placeholder="Reason for balance change"></div>
       <div class="mf"><label>Account Status</label>
         <select id="editStatus"><option value="active">Active</option><option value="banned">Banned</option></select>
@@ -785,12 +785,7 @@ const sbAdmin = (SUPA_SERVICE && SUPA_SERVICE !== 'REPLACE_WITH_YOUR_SERVICE_ROL
   : sb; // uses authenticated session — requires admin RLS policies (see below)
 
 // ── State ──────────────────────────────────────────────────────
-// Currency config (mirrors game.js CURR — used for balance crediting in approveDeposit)
-const CURRENCIES={
-  KES:{rate:130},UGX:{rate:3700},TZS:{rate:2700},NGN:{rate:1600},
-  GHS:{rate:15}, ZAR:{rate:19}, RWF:{rate:1350},ETB:{rate:57},
-  USD:{rate:1},  GBP:{rate:0.79},EUR:{rate:0.92},INR:{rate:83},
-};
+// All balances are stored in KES. No conversion rates needed.
 
 let allRounds=[], allUsers=[], allBets=[], allPending=[], allTxs=[], allLogs=[];
 let filteredRounds=[], filteredUsers=[], filteredBets=[], filteredTxs=[];
@@ -1473,13 +1468,8 @@ function renderPendingList(){
 // Track IDs currently being approved to prevent duplicate clicks
 const _approvingIds = new Set();
 
-// Currency rates: local currency units per 1 USD
-const CURRENCY_RATES = {
-  KES:130, UGX:3700, TZS:2700, NGN:1600, GHS:15,
-  ZAR:19,  RWF:1350, ETB:57,   GBP:0.79, EUR:0.92,
-  INR:83,  USD:1,
-};
-
+// NOTE: balance_real is stored in KES. Deposits are submitted in KES.
+// No currency conversion is needed — credit the amount as-is.
 window.approveDeposit=async(txId,userId,amount,currency)=>{
   // Prevent double-click / duplicate approval
   if(_approvingIds.has(txId)){
@@ -2111,7 +2101,7 @@ function renderUsersTable(){
   document.getElementById('usersTable').innerHTML=rows.map(u=>`<tr>
     <td><b>${u.username}</b>${u.is_admin?'<span class="badge bg-gold" style="margin-left:5px;font-size:.55rem">ADMIN</span>':''}</td>
     <td style="color:var(--muted);font-size:.77rem">${u.email||'—'}</td>
-    <td style="font-family:'Share Tech Mono',monospace">◈${parseFloat(u.balance_real||0).toFixed(2)}</td>
+    <td style="font-family:'Share Tech Mono',monospace">KSh ${parseFloat(u.balance_real||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
     <td>◈${parseFloat(u.total_wagered||0).toFixed(2)}</td>
     <td>◈${parseFloat(u.total_won||0).toFixed(2)}</td>
     <td style="color:${parseFloat(u.total_profit||0)>=0?'var(--green)':'var(--red)'}">◈${parseFloat(u.total_profit||0).toFixed(2)}</td>

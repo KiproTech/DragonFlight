@@ -197,6 +197,7 @@ CREATE TABLE public.users (
   country text DEFAULT 'KE'::text,
   balance_bonus numeric NOT NULL DEFAULT 0.00,
   bonus_claimed boolean NOT NULL DEFAULT false,
+  phone_number text UNIQUE,
   CONSTRAINT users_pkey PRIMARY KEY (id),
   CONSTRAINT users_referred_by_fkey FOREIGN KEY (referred_by) REFERENCES public.users(id)
 );
